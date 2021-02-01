@@ -155,6 +155,7 @@ if [ ${runningRTL} -eq 1 ]; then
   webinterfaceInfo="Web admin RTL -> ${color_green}http://${local_ip}:3000"
 fi
 
+
 # CHAIN NETWORK
 public_addr_pre="BTCpub "
 public_addr="??"
@@ -219,19 +220,18 @@ else
 
 fi
 
-# LIGHTNING NETWORK
 
+# LIGHTNING NETWORK
 ln_baseInfo="-"
 ln_channelInfo="\n"
 ln_external="\n"
 ln_alias="${hostname}"
 ln_publicColor=""
+public_addr_lnd="LNDpub "
 ln_port=$(sudo cat /mnt/hdd/lnd/lnd.conf | grep "^listen=*" | cut -f2 -d':')
 if [ ${#ln_port} -eq 0 ]; then
   ln_port="9735"
 fi
-
-public_addr_lnd="LNDpub "
 
 wallet_unlocked=$(sudo tail -n 1 /mnt/hdd/lnd/logs/${network}/${chain}net/lnd.log 2> /dev/null | grep -c unlock)
 if [ "$wallet_unlocked" -gt 0 ] ; then
@@ -265,7 +265,7 @@ else
   null
  fi
 
-if [ ${ln_tor} -eq 1 ]; then
+ if [ ${ln_tor} -eq 1 ]; then
    ln_publicColor="${color_green}"
  else
    public_check=$(nc -z -w6 ${public_ip} ${ln_port} 2>/dev/null; echo $?)
@@ -276,10 +276,12 @@ if [ ${ln_tor} -eq 1 ]; then
     ln_publicColor="${color_red}"
   fi
  fi
+
  alias_color="${color_grey}"
  ln_sync=$(echo "${ln_getInfo}" | grep "synced_to_chain" | grep "true" -c)
  ln_block_height=$(echo "${ln_getinfo}" | grep "block_height" | cut -c21-50 | sed '$ s/.$//')
  ln_version=$(echo "${ln_getInfo}" | jq -r '.version' | cut -d' ' -f1)
+
  if [ ${ln_sync} -eq 0 ]; then
     if [ ${#ln_getInfo} -eq 0 ]; then
       ln_baseInfo="${color_red} Not Started | Not Ready Yet"
@@ -313,7 +315,6 @@ if [ ${ln_tor} -eq 1 ]; then
     ln_weeklyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.week_fee_sum')" 2>/dev/null
     ln_monthlyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.month_fee_sum')" 2>/dev/null
     ln_feeReport="Fee Report: ${color_green}${ln_dailyfees}-${ln_weeklyfees}-${ln_monthlyfees} ${color_gray}sat (D-W-M)"
-    scanProgress="${scan_color}${scan}${scanProgress}"% 
  fi
 fi
 
@@ -348,7 +349,6 @@ datetime=$(date -R)
 clear
 printf "
 ${color_yellow}
-${color_yellow}
 ${color_yellow}               ${color_amber}%s ${color_green} ${ln_alias} ${upsInfo}
 ${color_yellow}               ${color_gray}${network^} Fullnode + Lightning Network ${torInfo}
 ${color_yellow}        ,/     ${color_yellow}%s
@@ -358,7 +358,7 @@ ${color_yellow}  ,´  /_____   ${color_gray}Free Mem ${color_ram}${ram} ${color_
 ${color_yellow},´_____    ,´  ${color_gray}SSH admin@${color_green}${local_ip}${color_gray} d${network_rx} u${network_tx}
 ${color_yellow}      /  ,´    ${color_gray}${webinterfaceInfo}
 ${color_yellow}     / ,´      ${color_gray}${network} ${color_green}${networkVersion} ${chain}net ${color_gray}Sync${sync_color} %s ${color_gray}${networkConnectionsInfo}
-${color_yellow}    /,´        ${color_gray}LND ${color_green}${ln_version} ${color_gray}Scan ${scanProgress} ${color_gray}${ln_peersInfo} ${color_gray}
+${color_yellow}    /,´        ${color_gray}LND ${color_green}${ln_version} ${color_gray}Scan ${scan_color}%s ${color_gray}${ln_peersInfo} ${color_gray}
 ${color_yellow}   /´          ${color_gray}${ln_channelInfo} ${ln_baseInfo}
 ${color_yellow}               ${color_gray}${ln_feeReport}
 $lastLine
@@ -367,7 +367,7 @@ $lastLine
 "-------------------------------------------" \
 "Refreshed: ${datetime}" \
 "CPU load${load##up*,  }" "${tempC}" "${tempF}" \
-"${hdd}" "${sync_percentage}"
+"${hdd}" "${sync_percentage}" "${scanProgress}"
 
 source /home/admin/stresstest.report 2>/dev/null
 if [ ${#undervoltageReports} -gt 0 ] && [ "${undervoltageReports}" != "0" ]; then
