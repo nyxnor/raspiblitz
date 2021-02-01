@@ -336,7 +336,7 @@ ${color_gray}    ╚╝╩ ╩      ${color_gray}$JMstatsL3
 ${color_gray}  ◎=◎=◎=◎=◎    ${color_gray}$JMstatsL4"
 else
     lastLine="\
-${color_gray}${public_addr_pre}${public_color}${ln_external} ${public}
+${color_gray}${public_addr_pre}${public_color}${public_addr} ${public}
 ${color_gray}${public_addr_lnd}${color_yellow}${ln_publicColor}${ln_external}${color_gray}"
 fi
 
