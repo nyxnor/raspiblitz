@@ -152,11 +152,12 @@ fi
 webinterfaceInfo=""
 runningRTL=$(sudo ls /etc/systemd/system/RTL.service 2>/dev/null | grep -c 'RTL.service')
 if [ ${runningRTL} -eq 1 ]; then
-  webinterfaceInfo="Web admin --> ${color_green}http://${local_ip}:3000"
+  webinterfaceInfo="Web admin RTL -> ${color_green}http://${local_ip}:3000"
 fi
 
+
 # CHAIN NETWORK
-public_addr_pre="Public "
+public_addr_pre="BTCpub "
 public_addr="??"
 torInfo=""
 # Version
@@ -170,7 +171,7 @@ if [ "${runBehindTor}" = "on" ]; then
 
   # TOR address
   onionAddress=$(echo ${networkInfo} | jq -r '.localaddresses [0] .address')
-  networkConnectionsInfo="${color_green}${networkConnections} ${color_gray}peers"
+  networkConnectionsInfo="${color_gray}Peers ${color_green}${networkConnections}"
   public_addr="${onionAddress}:${public_port}"
   public=""
   public_color="${color_green}"
@@ -179,7 +180,7 @@ if [ "${runBehindTor}" = "on" ]; then
 else
 
   # IP address
-  networkConnectionsInfo="${color_green}${networkConnections} ${color_gray}connections"
+  networkConnectionsInfo="${color_gray}connections ${color_green}${networkConnections}"
   public_addr="${publicIP}:${public_port}"
   public_check=$(nc -z -w6 ${cleanip} ${public_port} 2>/dev/null; echo $?)
   if [ $public_check = "0" ] || [ "${ipv6}" == "on" ] ; then
@@ -219,13 +220,14 @@ else
 
 fi
 
-# LIGHTNING NETWORK
 
+# LIGHTNING NETWORK
 ln_baseInfo="-"
 ln_channelInfo="\n"
 ln_external="\n"
 ln_alias="${hostname}"
 ln_publicColor=""
+public_addr_lnd="LNDpub "
 ln_port=$(sudo cat /mnt/hdd/lnd/lnd.conf | grep "^listen=*" | cut -f2 -d':')
 if [ ${#ln_port} -eq 0 ]; then
   ln_port="9735"
@@ -239,6 +241,30 @@ else
  ln_getInfo=$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert getinfo 2>/dev/null)
  ln_external=$(echo "${ln_getInfo}" | grep "uris" -A 1 | tr -d '\n' | cut -d '"' -f4)
  ln_tor=$(echo "${ln_external}" | grep -c ".onion")
+
+ #for lnd scan progress
+ lndinfo=$(sudo -u bitcoin lncli --chain=${network} --network=${chain}net getinfo 2>/mnt/hdd/temp/.lnd.error)
+ # lnd scan progress
+ scanTimestamp=$(echo ${lndinfo} | jq -r '.best_header_timestamp')
+ nowTimestamp=$(date +%s)
+ if [ ${#scanTimestamp} -gt 0 ] && [ ${scanTimestamp} -gt ${nowTimestamp} ]; then
+   scanTimestamp=${nowTimestamp}
+ fi
+ if [ ${#scanTimestamp} -gt 0 ]; then
+  scanTimestamp=${scanTimestamp}
+  scanDate=$(date -d @${scanTimestamp} 2>/dev/null)
+  scanDate='${scanDate}'
+  # calculate LND scan progress by seconds since Genesisblock
+  genesisTimestamp=1230940800
+
+  totalSeconds=$(echo "${nowTimestamp}-${genesisTimestamp}" | bc)
+  scannedSeconds=$(echo "${scanTimestamp}-${genesisTimestamp}" | bc)
+  scanProgress=$(echo "scale=5; ${scannedSeconds}/${totalSeconds}" | bc)
+  scanProgress=$(echo $scanProgress | awk '{printf( "%.2f%%", 100 * $1)}')
+ else
+  null
+ fi
+
  if [ ${ln_tor} -eq 1 ]; then
    ln_publicColor="${color_green}"
  else
@@ -250,16 +276,27 @@ else
     ln_publicColor="${color_red}"
   fi
  fi
+
  alias_color="${color_grey}"
  ln_sync=$(echo "${ln_getInfo}" | grep "synced_to_chain" | grep "true" -c)
+ ln_block_height=$(echo "${ln_getinfo}" | grep "block_height" | cut -c21-50 | sed '$ s/.$//')
  ln_version=$(echo "${ln_getInfo}" | jq -r '.version' | cut -d' ' -f1)
+
  if [ ${ln_sync} -eq 0 ]; then
     if [ ${#ln_getInfo} -eq 0 ]; then
       ln_baseInfo="${color_red} Not Started | Not Ready Yet"
+      lnd_block_diff=$(expr ${block_chain} - ${ln_block_height})
+      scan="-${lnd_block_diff} blks"
+      scan_color="${color_red}"
     else
       ln_baseInfo="${color_amber} Waiting for Chain Sync"
+      scan="-${lnd_block_diff} blks"
+      scan_color="${color_red}"
     fi
   else
+    ln_baseInfo="${color_amber} Waiting for Chain Sync"
+    scan="OK "
+    scan_color="${color_green}"
     ln_walletbalance="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert walletbalance | jq -r '.confirmed_balance')" 2>/dev/null
     ln_walletbalance_wait="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert walletbalance | jq -r '.unconfirmed_balance')" 2>/dev/null
     if [ "${ln_walletbalance_wait}" = "0" ]; then ln_walletbalance_wait=""; fi
@@ -273,12 +310,12 @@ else
     ln_baseInfo="${color_gray}wallet ${ln_walletbalance} sat ${ln_walletbalance_wait}"
     ln_peers="$(echo "${ln_getInfo}" | jq -r '.num_peers')" 2>/dev/null
     ln_channelInfo="${ln_channels_online}/${ln_channels_total} Channels ${ln_channelbalance} sat${ln_channelbalance_pending}"
-    ln_peersInfo="${color_green}${ln_peers} ${color_gray}peers"
+    ln_peersInfo="${color_gray}Peers ${color_green}${ln_peers}"
     ln_dailyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.day_fee_sum')" 2>/dev/null
     ln_weeklyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.week_fee_sum')" 2>/dev/null
     ln_monthlyfees="$(sudo -u bitcoin /usr/local/bin/lncli --macaroonpath=${lnd_macaroon_dir}/readonly.macaroon --tlscertpath=${lnd_dir}/tls.cert feereport | jq -r '.month_fee_sum')" 2>/dev/null
     ln_feeReport="Fee Report: ${color_green}${ln_dailyfees}-${ln_weeklyfees}-${ln_monthlyfees} ${color_gray}sat (D-W-M)"
-  fi
+ fi
 fi
 
 # show JoinMarket stats in place of the LND URI only if the Yield Generator is running
@@ -299,9 +336,9 @@ ${color_gray}    ╚╝╩ ╩      ${color_gray}$JMstatsL3
 ${color_gray}  ◎=◎=◎=◎=◎    ${color_gray}$JMstatsL4"
 else
     lastLine="\
-${color_yellow}
-${color_yellow}${ln_publicColor}${ln_external}${color_gray}"
-  fi
+${color_gray}${public_addr_pre}${public_color}${public_addr} ${public}
+${color_gray}${public_addr_lnd}${color_yellow}${ln_publicColor}${ln_external}${color_gray}"
+fi
 
 sleep 5
 
@@ -312,21 +349,17 @@ datetime=$(date -R)
 clear
 printf "
 ${color_yellow}
-${color_yellow}
-${color_yellow}
 ${color_yellow}               ${color_amber}%s ${color_green} ${ln_alias} ${upsInfo}
 ${color_yellow}               ${color_gray}${network^} Fullnode + Lightning Network ${torInfo}
 ${color_yellow}        ,/     ${color_yellow}%s
-${color_yellow}      ,'/      ${color_gray}%s
-${color_yellow}    ,' /       ${color_gray}%s, temp %s°C %s°F
-${color_yellow}  ,'  /_____,  ${color_gray}Free Mem ${color_ram}${ram} ${color_gray} HDDuse ${color_hdd}%s${color_gray}
-${color_yellow} .'____    ,'  ${color_gray}SSH admin@${color_green}${local_ip}${color_gray} d${network_rx} u${network_tx}
-${color_yellow}      /  ,'    ${color_gray}${webinterfaceInfo}
-${color_yellow}     / ,'      ${color_gray}${network} ${color_green}${networkVersion} ${chain}net ${color_gray}Sync ${sync_color}${sync} %s
-${color_yellow}    /,'        ${color_gray}${public_addr_pre}${public_color}${public_addr} ${public}${networkConnectionsInfo}
-${color_yellow}   /'          ${color_gray}
-${color_yellow}               ${color_gray}LND ${color_green}${ln_version} ${ln_baseInfo}
-${color_yellow}               ${color_gray}${ln_channelInfo} ${ln_peersInfo}
+${color_yellow}      ,´/      ${color_gray}%s
+${color_yellow}    ,´ /       ${color_gray}%s, temp %s°C %s°F
+${color_yellow}  ,´  /_____   ${color_gray}Free Mem ${color_ram}${ram} ${color_gray} HDDuse ${color_hdd}%s${color_gray}
+${color_yellow},´_____    ,´  ${color_gray}SSH admin@${color_green}${local_ip}${color_gray} d${network_rx} u${network_tx}
+${color_yellow}      /  ,´    ${color_gray}${webinterfaceInfo}
+${color_yellow}     / ,´      ${color_gray}${network} ${color_green}${networkVersion} ${chain}net ${color_gray}Sync${sync_color} %s ${color_gray}${networkConnectionsInfo}
+${color_yellow}    /,´        ${color_gray}LND ${color_green}${ln_version} ${color_gray}Scan ${scan_color}%s ${color_gray}${ln_peersInfo} ${color_gray}
+${color_yellow}   /´          ${color_gray}${ln_channelInfo} ${ln_baseInfo}
 ${color_yellow}               ${color_gray}${ln_feeReport}
 $lastLine
 " \
@@ -334,7 +367,7 @@ $lastLine
 "-------------------------------------------" \
 "Refreshed: ${datetime}" \
 "CPU load${load##up*,  }" "${tempC}" "${tempF}" \
-"${hdd}" "${sync_percentage}"
+"${hdd}" "${sync_percentage}" "${scanProgress}"
 
 source /home/admin/stresstest.report 2>/dev/null
 if [ ${#undervoltageReports} -gt 0 ] && [ "${undervoltageReports}" != "0" ]; then
@@ -345,7 +378,7 @@ elif [ ${#ups} -gt 1 ] && [ "${upsStatus}" = "n/a" ]; then
   echo "UPS service activated but not running"
 else
 
-  # cheching status of apps and display if in sync or problems
+  # checking status of apps and display if in sync or problems
   appInfoLine=""
 
   # Electrum Server - electrs
@@ -412,7 +445,9 @@ if [ "${EUID}" = "$(id -u pi)" ]; then
     "ln_baseInfo": "${json_ln_baseInfo}",
     "ln_peers": "${ln_peers}",
     "ln_channelInfo": "${ln_channelInfo}",
-    "ln_external": "${ln_external}"
+    "ln_external": "${ln_external}",
+    "scanProgress": "${scanProgress}",
+    "public_addr_lnd": "${public_addr_lnd}"
 }
 EOF
 
