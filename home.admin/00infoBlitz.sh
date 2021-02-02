@@ -101,7 +101,7 @@ if [ -n ${btc_path} ]; then
     block_diff=$(expr ${block_chain} - ${block_verified})
 
     progress="$(echo "${blockchaininfo}" | jq -r '.verificationprogress')"
-    sync_percentage=$(echo $progress | awk '{printf( "%.2f%%", 100 * $1)}')
+    sync_percentage=$(echo $progress | awk '{printf( "%.2f", 100 * $1)}')
 
     if [ ${block_diff} -eq 0 ]; then    # fully synced
       sync="OK"
@@ -260,7 +260,7 @@ else
   totalSeconds=$(echo "${nowTimestamp}-${genesisTimestamp}" | bc)
   scannedSeconds=$(echo "${scanTimestamp}-${genesisTimestamp}" | bc)
   scanProgress=$(echo "scale=5; ${scannedSeconds}/${totalSeconds}" | bc)
-  scanProgress=$(echo $scanProgress | awk '{printf( "%.2f%%", 100 * $1)}')
+  scanProgress=$(echo $scanProgress | awk '{printf( "%.2f", 100 * $1)}')
  else
   null
  fi
@@ -367,7 +367,7 @@ $lastLine
 "-------------------------------------------" \
 "Refreshed: ${datetime}" \
 "CPU load${load##up*,  }" "${tempC}" "${tempF}" \
-"${hdd}" "${sync_percentage}" "${scanProgress}"
+"${hdd}" "${sync_percentage}%" "${scanProgress}%"
 
 source /home/admin/stresstest.report 2>/dev/null
 if [ ${#undervoltageReports} -gt 0 ] && [ "${undervoltageReports}" != "0" ]; then
