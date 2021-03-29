@@ -155,6 +155,10 @@ if [ "${baseImage}" = "?" ]; then
 fi
 echo "X) will use OPERATINGSYSTEM ---> '${baseImage}'"
 
+# Distribution
+distribution=$(lsb_release -c | cut -c11-30)
+echo "X) will use DISTRIBUTION ---> '${distribution}'"
+
 # USER-CONFIRMATION
 echo -n "Do you agree with all parameters above? (yes/no) "
 read installRaspiblitzAnswer
@@ -168,13 +172,158 @@ else
   exit 1
 fi
 
+# MASK TOR
+# Wait for user to input bridges to mask he is using Tor
+echo ""
+echo "*** Mask Tor before installing ***"
+echo "# Preventing Tor from start before user configuration"
+sudo systemctl mask tor@default.service tor.service
+echo ""
+
 # INSTALL TOR
+# Tor will be installed from Distro repo for who dont have acces to www.torproject.org
 echo "*** INSTALL TOR BY DEFAULT ***"
 echo ""
-sudo apt install -y dirmngr
+sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
+
+# Doesnt work the repo version. Only works building from source.
+echo "*** Install obfs4proxy from source ***" 
+echo ""
+
+echo "# Adding distro Sources to sources.list ***"
+raspbianSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://deb.debian.org/debian buster main contrib non-free')
+echo "raspbianSourceListAvailable=${raspbianSourceListAvailable}"  
+ubuntuSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://archive.ubuntu.com/ubuntu/ focal main')
+echo "ubuntuSourceListAvailable=${ubuntuSourceListAvailable}"
+if [ ${raspbianSourceListAvailable} -eq 0 ]; then
+  echo "Adding ${baseImage} sources over HTTPS ..."
+  if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
+    echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
+  elif [ "${baseImage}" = "ubuntu" ]; then
+    echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
+  fi
+  echo "deb-src for ${baseImage} over HTTPS is available"
+fi
+echo ""
+    
+# Only works building from source on ARM (32/64 bit).
+echo "# Building obfs4proxy from the source code ..."
+sudo apt update
+mkdir -p obfs4proxy
+cd obfs4proxy/
+sudo apt install -y obfs4proxy
+sudo apt source -y obfs4proxy
+sudo apt build-dep -y obfs4proxy
+cd obfs4proxy-*
+dpkg-buildpackage -b -uc
+cd ..
+dpkg -i obfs4proxy_*.deb 
+sudo apt update
+sudo apt --only-upgrade install obfs4proxy
+cd ..
+sudo rm -rf obfs4proxy
+cd
+echo "# Installed $(obfs4proxy --version)"
+exit 0
+echo ""
+
+torDomainStatus=$(ping -c 3 torproject.org | grep -c packets)
+echo "Testing connection to torproject.org"
+echo ${torDomainStatus}
+if [ ${torDomainStatus} -gt 0 ]; then
+  echo "You can reach torproject.org via CLEARNET"
+else
+  echo "You can NOT reach torproject.org via CLEARNET"
+fi
+echo ""
+
+echo "# Configure bridges"
+userHasBridges=$(sudo cat /etc/tor/torrc | grep -c 'UseBridges 1')
+echo ""
+echo "userHasBridges=${userHasBridges}"
+if [ ${userHasBridges} -eq 0 ]; then
+  echo ""
+  echo "Add Tor bridges?"
+  while [ "${bridgeYN}" != "yes" ] || [ "${bridgeYN}" != "no" ]; do
+    read -p "(yes/no): " bridgeYN
+    if [ "${bridgeYN}" = "no" ]; then
+      break
+    elif [ "${bridgeYN}" = "yes" ]; then
+      sudo cp /etc/tor/torrc /etc/tor/torrc.orig
+      sudo rm -rf /etc/tor/torrc
+      sudo touch /etc/tor/torrc
+      echo ""
+      echo "What bridge class?" 
+      while [ "${bridgeClass}" != "pluggable" ] || [ "${bridgeClass}" != "normal" ]; do
+        read -p "(pluggable/normal): " bridgeClass
+        if [ "${bridgeClass}" = "pluggable" ]; then
+          echo ""
+          echo "What bride pluggable transport type?"
+          while [ "${bridgeType}" != "obfs4" ] || [ "${bridgeType}" != "meek_lite" ]; do
+            read -p "(obfs4/meek_lite): " bridgeType
+            if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+              break
+            fi
+          done
+        fi
+        if [ "${bridgeClass}" = "pluggable" ] || [ "${bridgeClass}" = "normal" ]; then
+          echo ""
+          echo "Insert bridges in the following format accordingly to the plugglable type you chose:"
+          echo "obfs4 bridges ----> obfs4 ipAdress:port fingerprint cert iat-mode"
+          echo "meek bridges -----> meek_lite ipAdress:port fingerprint url front"
+          echo "normal bridges ---> ipAdress:port fingerprint"
+          echo ""
+          read -p "Insert bridge 1/3: " b1p1 b1p2 b1p3 b1p4 b1p5
+          read -p "Insert bridge 2/3: " b2p1 b2p2 b2p3 b2p4 b2p5
+          read -p "Insert bridge 3/3: " b3p1 b3p2 b3p3 b3p4 b3p5
+          echo ""
+          echo "" | sudo tee -a /etc/tor/torrc
+          echo "UseBridges 1" | sudo tee -a /etc/tor/torrc
+          echo "UpdateBridgesFromAuthority 1" | sudo tee -a /etc/tor/torrc
+          if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+            echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/torrc
+          fi
+          echo "Bridge ${b1p1} ${b1p2} ${b1p3} ${b1p4} ${b1p5}" | sudo tee -a /etc/tor/torrc
+          echo "Bridge ${b2p1} ${b2p2} ${b2p3} ${b2p4} ${b2p5}" | sudo tee -a /etc/tor/torrc
+          echo "Bridge ${b3p1} ${b3p2} ${b3p3} ${b3p4} ${b3p5}" | sudo tee -a /etc/tor/torrc
+          sudo cp /etc/tor/torrc /etc/tor/bridges
+          break
+        fi
+      done
+      break
+    fi
+  done
+fi
+echo ""
+
+echo "*** Unmask Tor ***"
+sudo systemctl unmask tor@default.service tor.service
+sudo systemctl daemon-reload
+sudo systemctl reset-failed
+sleep 5
+sudo systemctl enable tor@default.service
+sudo systemctl start tor@default.service
+sleep 5
+sudo systemctl status tor@default.service tor.service --no-pager
+echo ""
+
+# check if Tor was already installed and is functional
+echo ""
+echo "*** Check if Tor service is functional ***"
+torRunning=$(curl --connect-timeout 10 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org 2>/dev/null | grep "Congratulations. This browser is configured to use Tor." -c)
+if [ ${torRunning} -gt 0 ]; then
+  clear
+  echo "You are all good - Tor is already running."
+  echo ""
+  exit 0
+else
+  echo "Tor not running ... proceed with switching to Tor."
+  echo ""
+fi
+
 echo "*** Adding KEYS deb.torproject.org ***"
 # fix for v1.6 base image https://github.com/rootzoll/raspiblitz/issues/1906#issuecomment-755299759
-wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --import
+torsocks wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --import
 sudo gpg --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | sudo apt-key add -
 torKeyAvailable=$(sudo gpg --list-keys | grep -c "A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89")
 if [ ${torKeyAvailable} -eq 0 ]; then
@@ -185,19 +334,27 @@ echo "- OK key added"
 
 echo "*** Adding Tor Sources to sources.list ***"
 torSourceListAvailable=$(sudo grep -c 'https://deb.torproject.org/torproject.org' /etc/apt/sources.list)
-echo "torSourceListAvailable=${torSourceListAvailable}"  
-if [ ${torSourceListAvailable} -eq 0 ]; then
-  echo "- adding TOR sources ..."
-  if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
-    echo "- using https://deb.torproject.org/torproject.org buster"
-    echo "deb https://deb.torproject.org/torproject.org buster main" | sudo tee -a /etc/apt/sources.list
-    echo "deb-src https://deb.torproject.org/torproject.org buster main" | sudo tee -a /etc/apt/sources.list
-  elif [ "${baseImage}" = "ubuntu" ]; then
-    echo "- using https://deb.torproject.org/torproject.org focal"
-    echo "deb https://deb.torproject.org/torproject.org focal main" | sudo tee -a /etc/apt/sources.list
-    echo "deb-src https://deb.torproject.org/torproject.org focal main" | sudo tee -a /etc/apt/sources.list    
+echo "torSourceListAvailable=${torSourceListAvailable}"
+torSourceListAvailableOnion=$(sudo cat /etc/apt/sources.list | grep -c 'tor://deb.torproject.org/torproject.org')
+echo "torSourceListAvailableOnion=${torSourceListAvailableOnion}"  
+
+if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ] || [ "${baseImage}" = "ubuntu" ]; then
+  if [ ${torSourceListAvailable} -eq 0 ]; then
+    echo "- adding HTTPS TOR sources ..."
+    echo "- using https://deb.torproject.org/torproject.org ${distribution}"
+    echo "deb tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
+    echo "deb-src tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
   else
-    echo "!!! FAIL: No Tor sources for os: ${baseImage}"
+    echo "!!! FAIL: No HTTPS Tor sources for os: ${baseImage}"
+    exit 1
+  fi
+  if [ ${torSourceListAvailableOnion} -eq 0 ]; then
+    echo "- adding ONION TOR sources ..."
+    echo "- using tor://deb.torproject.org/torproject.org ${distribution}"
+    echo "deb tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
+    echo "deb-src tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
+  else
+    echo "!!! FAIL: No ONION Tor sources for os: ${baseImage}"
     exit 1
   fi
   echo "- OK sources added"
@@ -205,8 +362,10 @@ else
   echo "TOR sources are available"
 fi
 
+# Now Tor will be installed in the latest version from Tor Project repo.
 echo "*** Install & Enable Tor ***"
-sudo apt install tor tor-arm torsocks -y
+sudo apt update
+sudo apt install -y tor tor-arm torsocks
 echo ""
 
 # FIXING LOCALES
@@ -795,7 +954,7 @@ sudo -u admin mkdir /home/admin/download
 cd /home/admin/download
 
 # download, check and import signer key
-sudo -u admin wget https://bitcoin.org/laanwj-releases.asc
+sudo -u admin torsocks wget https://bitcoin.org/laanwj-releases.asc
 if [ ! -f "./laanwj-releases.asc" ]
 then
   echo "!!! FAIL !!! Download laanwj-releases.asc not success."
@@ -813,7 +972,7 @@ fi
 gpg --import ./laanwj-releases.asc
 
 # download signed binary sha256 hash sum file and check
-sudo -u admin wget https://bitcoin.org/bin/bitcoin-core-${bitcoinVersion}/SHA256SUMS.asc
+sudo -u admin torsocks wget https://bitcoin.org/bin/bitcoin-core-${bitcoinVersion}/SHA256SUMS.asc
 verifyResult=$(gpg --verify SHA256SUMS.asc 2>&1)
 goodSignature=$(echo ${verifyResult} | grep 'Good signature' -c)
 echo "goodSignature(${goodSignature})"
@@ -849,7 +1008,7 @@ echo "*** BITCOIN v${bitcoinVersion} for ${bitcoinOSversion} ***"
 # download resources
 binaryName="bitcoin-${bitcoinVersion}-${bitcoinOSversion}.tar.gz"
 if [ ! -f "./${binaryName}" ]; then
-   sudo -u admin wget https://bitcoin.org/bin/bitcoin-core-${bitcoinVersion}/${binaryName}
+   sudo -u admin torsocks wget https://bitcoin.org/bin/bitcoin-core-${bitcoinVersion}/${binaryName}
 fi
 if [ ! -f "./${binaryName}" ]; then
    echo "!!! FAIL !!! Download BITCOIN BINARY not success."
@@ -911,11 +1070,11 @@ PGPcheck="9C8D61868A7C492003B2744EE7D737B67FA592C7"
 cd /home/admin/download
 
 # download lnd binary checksum manifest
-sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-v${lndVersion}.txt
+sudo -u admin torsocks wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-v${lndVersion}.txt
 
 # check if checksums are signed by lnd dev team
-sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-${PGPauthor}-v${lndVersion}.sig
-sudo -u admin wget --no-check-certificate -N -O "pgp_keys.asc" ${PGPpkeys}
+sudo -u admin torsocks wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-${PGPauthor}-v${lndVersion}.sig
+sudo -u admin torsocks wget --no-check-certificate -N -O "pgp_keys.asc" ${PGPpkeys}
 gpg --import --import-options show-only ./pgp_keys.asc
 fingerprint=$(sudo gpg "pgp_keys.asc" 2>/dev/null | grep "${PGPcheck}" -c)
 if [ ${fingerprint} -lt 1 ]; then
@@ -968,7 +1127,7 @@ binaryName="lnd-linux-${lndOSversion}-v${lndVersion}.tar.gz"
 if [ ! -f "./${binaryName}" ]; then
   lndDownloadUrl="https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/${binaryName}"
   echo "- downloading lnd binary --> ${lndDownloadUrl}"
-  sudo -u admin wget ${lndDownloadUrl}
+  sudo -u admin torsocks wget ${lndDownloadUrl}
   echo "- download done"
 else
   echo "- using existing lnd binary"
