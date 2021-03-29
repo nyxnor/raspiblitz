@@ -297,6 +297,10 @@ HiddenServiceVersion 2
 HiddenServicePort 8080 127.0.0.1:8080
 EOF
     sudo rm $torrc
+    sudo touch /etc/tor/bridges
+    sudo cp /etc/tor/bridges ./bridges
+    sudo cat ./bridges ./torrc > ./torrc
+    sudo rm ./bridges
     sudo mv ./torrc $torrc
     sudo chmod 644 $torrc
     sudo chown -R debian-tor:debian-tor /var/run/tor/ 2>/dev/null
