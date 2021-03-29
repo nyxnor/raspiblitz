@@ -42,7 +42,7 @@ fi
 # If this parameter is set also the branch needs to be given (see next parameter).
 githubUser="$2"
 if [ ${#githubUser} -eq 0 ]; then
-  githubUser="rootzoll"
+  githubUser="Ben10Brasileiro"
 fi
 echo "2) will use GITHUB-USERNAME --> '${githubUser}'"
 
@@ -51,7 +51,7 @@ echo "2) will use GITHUB-USERNAME --> '${githubUser}'"
 # could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default
 githubBranch="$3"
 if [ ${#githubBranch} -eq 0 ]; then
-  githubBranch="dev"
+  githubBranch="patch-5"
 fi
 echo "3) will use GITHUB-BRANCH --> '${githubBranch}'"
 
