@@ -311,12 +311,11 @@ echo ""
 echo "*** Check if Tor service is functional ***"
 torRunning=$(curl --connect-timeout 10 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org 2>/dev/null | grep "Congratulations. This browser is configured to use Tor." -c)
 if [ ${torRunning} -gt 0 ]; then
-  clear
   echo "You are all good - Tor is already running."
   echo ""
-  exit 0
 else
-  echo "Tor not running ... proceed with switching to Tor."
+  echo "Tor not running ... exiting now."
+  echo "Correct the file /etc/tor/torrc before running this script again."
   echo ""
 fi
 
