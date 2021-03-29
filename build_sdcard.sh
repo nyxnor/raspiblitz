@@ -191,11 +191,11 @@ echo "*** Install obfs4proxy from source ***"
 echo ""
 
 echo "# Adding distro Sources to sources.list ***"
-raspbianSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://deb.debian.org/debian buster main contrib non-free')
-echo "raspbianSourceListAvailable=${raspbianSourceListAvailable}"  
-ubuntuSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://archive.ubuntu.com/ubuntu/ focal main')
-echo "ubuntuSourceListAvailable=${ubuntuSourceListAvailable}"
-if [ ${raspbianSourceListAvailable} -eq 0 ]; then
+#raspbianSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://deb.debian.org/debian buster main contrib non-free')
+#echo "raspbianSourceListAvailable=${raspbianSourceListAvailable}"  
+#ubuntuSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://archive.ubuntu.com/ubuntu/ focal main')
+#echo "ubuntuSourceListAvailable=${ubuntuSourceListAvailable}"
+#if [ ${raspbianSourceListAvailable} -eq 0 ]; then
   echo "Adding ${baseImage} sources over HTTPS ..."
   if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
     echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
@@ -203,7 +203,7 @@ if [ ${raspbianSourceListAvailable} -eq 0 ]; then
     echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
   fi
   echo "deb-src for ${baseImage} over HTTPS is available"
-fi
+#fi
 echo ""
     
 # Only works building from source on ARM (32/64 bit).
@@ -224,7 +224,6 @@ cd ..
 sudo rm -rf obfs4proxy
 cd
 echo "# Installed $(obfs4proxy --version)"
-exit 0
 echo ""
 
 torDomainStatus=$(ping -c 3 torproject.org | grep -c packets)
