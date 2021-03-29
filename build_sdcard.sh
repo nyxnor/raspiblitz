@@ -724,7 +724,7 @@ echo "*** SHELL SCRIPTS AND ASSETS ***"
 # move files from gitclone
 cd /home/admin/
 sudo -u admin rm -rf /home/admin/raspiblitz
-sudo -u admin git clone -b ${githubBranch} https://github.com/${githubUser}/raspiblitz.git
+sudo -u admin torsocks git clone -b ${githubBranch} https://github.com/${githubUser}/raspiblitz.git
 sudo -u admin cp -r /home/admin/raspiblitz/home.admin/*.* /home/admin
 sudo -u admin cp -r /home/admin/raspiblitz/home.admin/.tmux.conf /home/admin
 sudo -u admin chmod +x *.sh
