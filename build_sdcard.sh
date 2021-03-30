@@ -175,8 +175,15 @@ else
   exit 1
 fi
 
+echo ""
+echo "*** Update ${baseImage} sources and repo version ***"
+sudo apt update -y
+sudo apt dist-upgrade -f -y
+echo ""
+
 # MASK TOR
 # Wait for user to input bridges to mask he is using Tor
+# This is for security reasons if someone is in danger to no appear in the radar.
 echo ""
 echo "*** Mask Tor before installing ***"
 echo "# Preventing Tor from start before user configuration"
@@ -187,9 +194,8 @@ echo ""
 # Tor will be installed from Distro repo for who dont have acces to www.torproject.org
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
 echo "*** INSTALL TOR BY DEFAULT ***"
-echo ""
-sudo apt update -y
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
+echo ""
 
 # INSTALL TOR BRIDGES PACKAGE
 # Doesnt work the repo version. Only works building from source.
@@ -224,7 +230,7 @@ echo ""
 
 # Only works building from source on ARM (32/64 bit).
 echo "# Building obfs4proxy from the source code ..."
-sudo apt update
+sudo apt update -y
 mkdir -p obfs4proxy
 cd obfs4proxy/
 sudo apt install -y obfs4proxy
@@ -247,9 +253,9 @@ torDomainStatus=$(ping -c 3 torproject.org | grep -c packets)
 echo "Testing connection to torproject.org"
 echo ${torDomainStatus}
 if [ ${torDomainStatus} -gt 0 ]; then
-  echo "You can reach torproject.org via CLEARNET"
+  echo "You can reach torproject.org via CLEARNET. But Tor connections could still be blocked, add bridges if you desire."
 else
-  echo "You can NOT reach torproject.org via CLEARNET"
+  echo "WARNING: You can NOT reach torproject.org via CLEARNET. Configure bridges below! Or use a mirror (less safe and can be old source)"
 fi
 echo ""
 
@@ -316,10 +322,10 @@ echo "*** Unmask Tor ***"
 sudo systemctl unmask tor@default.service tor.service
 sudo systemctl daemon-reload
 sudo systemctl reset-failed
-sleep 7
-sudo systemctl enable tor@default.service
-sudo systemctl start tor@default.service
-sleep 7
+sleep 5
+sudo systemctl enable tor@default.service tor.service
+sudo systemctl start tor@default.service tor.service
+sleep 20
 sudo systemctl status tor@default.service tor.service --no-pager
 echo ""
 
@@ -328,12 +334,13 @@ echo ""
 echo "*** Check if Tor service is functional ***"
 torRunning=$(curl --connect-timeout 10 --socks5-hostname 127.0.0.1:9050 https://check.torproject.org 2>/dev/null | grep "Congratulations. This browser is configured to use Tor." -c)
 if [ ${torRunning} -gt 0 ]; then
-  echo "You are all good - Tor is already running."
+  echo "You are all good - Tor is already running.You reached Tor Project via SOCKS5 (Tor)"
   echo ""
 else
-  echo "Tor not running ... exiting now."
-  echo "Correct the file /etc/tor/torrc before running this script again."
+  echo "!!! FAIL: Tor not running ... exiting now."
+  echo "Correct the file /etc/tor/torrc before running this script again. Debug tor.service and tor@default.service manually."
   echo ""
+  exit 1
 fi
 
 echo "*** Adding KEYS deb.torproject.org ***"
