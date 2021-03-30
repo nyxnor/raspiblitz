@@ -14,6 +14,9 @@ echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.7   *"
 echo "*****************************************"
 echo "For details on optional parameters - see build script source code:"
 
+# set starting time
+start=$SECONDS
+
 # 1st optional paramater: FATPACK
 # -------------------------------
 # could be 'true' or 'false' (default)
@@ -1341,3 +1344,6 @@ if [ "${lcdInstalled}" == "GPIO" ]; then
     echo "Use 'sudo reboot' to restart manually."
   fi
 fi
+
+# Calculate total seconds
+duration=$(( SECONDS - start ))
