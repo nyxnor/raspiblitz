@@ -188,6 +188,7 @@ echo ""
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
 echo "*** INSTALL TOR BY DEFAULT ***"
 echo ""
+sudo apt update -y
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
 
 # INSTALL TOR BRIDGES PACKAGE
