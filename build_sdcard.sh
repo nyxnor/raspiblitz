@@ -237,6 +237,7 @@ cd ..
 sudo rm -rf obfs4proxy
 cd
 echo "# Installed $(obfs4proxy --version)"
+sudo rm -rf /etc/apt/sources.list.d/buildsources.list
 echo ""
 
 torDomainStatus=$(ping -c 3 torproject.org | grep -c packets)
@@ -353,8 +354,8 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ 
   if [ ${torSourceListAvailable} -eq 0 ]; then
     echo "- adding HTTPS TOR sources ..."
     echo "- using https://deb.torproject.org/torproject.org ${distribution}"
-    echo "deb tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
-    echo "deb-src tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
+    echo "deb https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
+    echo "deb-src https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
   else
     echo "!!! FAIL: No HTTPS Tor sources for os: ${baseImage}"
     exit 1
@@ -376,7 +377,7 @@ echo ""
 
 # Now Tor will be installed in the latest version from Tor Project repo.
 echo "*** Install & Enable Tor ***"
-sudo apt update
+sudo apt update -y
 sudo apt install -y tor tor-arm torsocks
 echo ""
 
