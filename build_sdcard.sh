@@ -1358,3 +1358,6 @@ fi
 
 # Calculate total seconds
 duration=$(( SECONDS - start ))
+echo "The script took ${duration} seconds to complete"
+date -d@${duration} -u +%H:%M:%S
+echo ""
