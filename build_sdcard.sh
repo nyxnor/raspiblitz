@@ -323,11 +323,11 @@ sudo systemctl unmask tor@default.service tor.service
 sudo systemctl daemon-reload
 sudo systemctl reset-failed
 sleep 5
-sudo systemctl enable tor@default.service tor.service
-sudo systemctl start tor@default.service tor.service
-sleep 20
+sudo systemctl start tor@default.service
+sleep 10
 sudo systemctl status tor@default.service tor.service --no-pager
 echo ""
+
 
 # check if Tor was already installed and is functional
 echo ""
