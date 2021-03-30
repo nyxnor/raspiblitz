@@ -191,21 +191,31 @@ echo "*** Install obfs4proxy from source ***"
 echo ""
 
 echo "# Adding distro Sources to sources.list ***"
-#raspbianSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://deb.debian.org/debian buster main contrib non-free')
-#echo "raspbianSourceListAvailable=${raspbianSourceListAvailable}"  
-#ubuntuSourceListAvailable=$(sudo cat /etc/apt/sources.list | grep -c 'deb-src http://archive.ubuntu.com/ubuntu/ focal main')
-#echo "ubuntuSourceListAvailable=${ubuntuSourceListAvailable}"
-#if [ ${raspbianSourceListAvailable} -eq 0 ]; then
-  echo "Adding ${baseImage} sources over HTTPS ..."
-  if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
-    echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-  elif [ "${baseImage}" = "ubuntu" ]; then
-    echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
-  fi
-  echo "deb-src for ${baseImage} over HTTPS is available"
+#sudo rm -rf /etc/apt/sources.list
+#sudo touch /etc/apt/sources.list
+#if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
+#  echo "deb http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
+#  echo "deb http://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
+#  echo "deb http://deb.debian.org/debian ${distribution}-updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
+#  echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
+#elif [ "${baseImage}" = "ubuntu" ]
+#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
+#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}/updates main" | sudo tee -a /etc/apt/sources.list
+#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}-updates main" | sudo tee -a /etc/apt/sources.list
+#  echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
 #fi
+#echo "deb-src for ${baseImage} over HTTPS is available"
+#echo ""
+
+sudo touch /etc/apt/sources.list.d/buildsources.list
+if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
+  echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
+elif [ "${baseImage}" = "ubuntu" ]
+  echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
+fi
+echo "deb-src for ${baseImage} over HTTPS is available"
 echo ""
-    
+
 # Only works building from source on ARM (32/64 bit).
 echo "# Building obfs4proxy from the source code ..."
 sudo apt update
@@ -299,10 +309,10 @@ echo "*** Unmask Tor ***"
 sudo systemctl unmask tor@default.service tor.service
 sudo systemctl daemon-reload
 sudo systemctl reset-failed
-sleep 5
+sleep 7
 sudo systemctl enable tor@default.service
 sudo systemctl start tor@default.service
-sleep 5
+sleep 7
 sudo systemctl status tor@default.service tor.service --no-pager
 echo ""
 
