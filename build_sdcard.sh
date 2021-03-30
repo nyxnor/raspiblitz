@@ -359,6 +359,7 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ 
 else
   echo "TOR sources are available"
 fi
+echo ""
 
 # Now Tor will be installed in the latest version from Tor Project repo.
 echo "*** Install & Enable Tor ***"
