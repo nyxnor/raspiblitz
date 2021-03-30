@@ -185,10 +185,12 @@ echo ""
 
 # INSTALL TOR
 # Tor will be installed from Distro repo for who dont have acces to www.torproject.org
+# Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
 echo "*** INSTALL TOR BY DEFAULT ***"
 echo ""
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
 
+# INSTALL TOR BRIDGES PACKAGE
 # Doesnt work the repo version. Only works building from source.
 echo "*** Install obfs4proxy from source ***" 
 echo ""
