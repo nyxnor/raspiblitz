@@ -203,7 +203,7 @@ echo "# Adding distro Sources to sources.list ***"
 #  echo "deb http://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
 #  echo "deb http://deb.debian.org/debian ${distribution}-updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
 #  echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-#elif [ "${baseImage}" = "ubuntu" ]
+#elif [ "${baseImage}" = "ubuntu" ]; then
 #  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
 #  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}/updates main" | sudo tee -a /etc/apt/sources.list
 #  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}-updates main" | sudo tee -a /etc/apt/sources.list
@@ -215,7 +215,7 @@ echo "# Adding distro Sources to sources.list ***"
 sudo touch /etc/apt/sources.list.d/buildsources.list
 if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
   echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-elif [ "${baseImage}" = "ubuntu" ]
+elif [ "${baseImage}" = "ubuntu" ]; then
   echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
 fi
 echo "deb-src for ${baseImage} over HTTPS is available"
