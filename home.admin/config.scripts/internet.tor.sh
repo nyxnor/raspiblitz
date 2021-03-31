@@ -299,9 +299,9 @@ EOF
     sudo rm $torrc
     sudo touch /etc/tor/bridges
     sudo cp /etc/tor/bridges ./bridges
-    sudo cat ./bridges ./torrc > ./torrc
+    sudo bash -c 'cat ./bridges ./torrc > ./torrcX'
     sudo rm ./bridges
-    sudo mv ./torrc $torrc
+    sudo mv ./torrcX $torrc
     sudo chmod 644 $torrc
     sudo chown -R debian-tor:debian-tor /var/run/tor/ 2>/dev/null
     echo ""
