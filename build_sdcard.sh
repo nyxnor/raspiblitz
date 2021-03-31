@@ -187,7 +187,7 @@ echo ""
 echo ""
 echo "*** Mask Tor before installing ***"
 echo "# Preventing Tor from start before user configuration"
-sudo systemctl mask tor@default.service tor.service
+sudo systemctl mask tor@default.service
 echo ""
 
 # INSTALL TOR
@@ -321,13 +321,13 @@ fi
 echo ""
 
 echo "*** Unmask Tor ***"
-sudo systemctl unmask tor@default.service tor.service
+sudo systemctl unmask tor@default.service
 sudo systemctl daemon-reload
 sudo systemctl reset-failed
 sleep 5
 sudo systemctl start tor@default.service
 sleep 10
-sudo systemctl status tor@default.service tor.service --no-pager
+sudo systemctl status tor@default.service --no-pager
 echo ""
 
 
