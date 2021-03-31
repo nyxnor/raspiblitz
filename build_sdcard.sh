@@ -304,9 +304,9 @@ if [ ${userHasBridges} -eq 0 ]; then
           echo "UseBridges 1" | sudo tee -a /etc/tor/torrc
           # this line UpdateBridgesFromAuthority is breaking on raspios_arm64, but was functional on raspi 32bit :(
           #echo "UpdateBridgesFromAuthority 1" | sudo tee -a /etc/tor/torrc
-          #if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
-          #  echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/torrc
-          #fi
+          if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+            echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/torrc
+          fi
           echo "Bridge ${b1p1} ${b1p2} ${b1p3} ${b1p4} ${b1p5}" | sudo tee -a /etc/tor/torrc
           echo "Bridge ${b2p1} ${b2p2} ${b2p3} ${b2p4} ${b2p5}" | sudo tee -a /etc/tor/torrc
           echo "Bridge ${b3p1} ${b3p2} ${b3p3} ${b3p4} ${b3p5}" | sudo tee -a /etc/tor/torrc
@@ -355,6 +355,7 @@ if [ ${torKeyAvailable} -eq 0 ]; then
   exit 1
 fi
 echo "- OK key added"
+echo ""
 
 echo "*** Adding Tor Sources to sources.list ***"
 torSourceListAvailable=$(sudo grep -c 'https://deb.torproject.org/torproject.org' /etc/apt/sources.list)
