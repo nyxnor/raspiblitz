@@ -7,6 +7,7 @@
 ##########################################################################
 # setup fresh SD card with image above - login per SSH and run this script:
 ##########################################################################
+# TODO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
 
 echo ""
 echo "*****************************************"
@@ -369,7 +370,6 @@ fi
 echo ""
 }
 
-
 bridgesInsert()
 {
 echo ""
@@ -395,7 +395,6 @@ fi
 echo "" | sudo tee -a /etc/tor/torrc
 sudo cp /etc/tor/torrc /etc/tor/bridges
 }
-
 
 bridgesQuestion
 if [ "${bridgeConfirm}" = "redo" ]; then
