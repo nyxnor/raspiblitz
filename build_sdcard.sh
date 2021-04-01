@@ -259,29 +259,61 @@ else
 fi
 echo ""
 
-# Tor manual https://manpages.debian.org/buster/tor/torrc.5.en.html
+bridgesQuestion()
+{
+echo ""
+echo "#-------------------------------------------------------------"
+echo ""
 echo "# Configure bridges"
 userHasBridges=$(sudo cat /etc/tor/torrc | grep -c 'UseBridges 1')
-echo ""
 echo "userHasBridges=${userHasBridges}"
 if [ ${userHasBridges} -eq 0 ]; then
   echo ""
-  echo "Add Tor bridges?"
+  echo "Read what are bridges ---> https://support.torproject.org/censorship/censorship-7/"
+  echo ""
+  echo "Bridges are Tor relays that help you circumvent censorship."
+  echo "Means of aquiring bridges"
+  echo "1 ---> Open Tor Browser and access https://bridges.torproject.org/"
+  echo "2 ---> Another way to get bridges is to send an email to bridges@torproject.org. Leave the email subject empty and write 'get transport obfs4' in the email's message body. Please note that you must send the email using an address from one of the following email providers: Riseup or Gmail. "
+  echo ""
+  echo "Bridges are necessary? Depends on your treat model."
+  echo ""
+  echo "# Add Tor bridges?"
   while [ "${bridgeYN}" != "yes" ] || [ "${bridgeYN}" != "no" ]; do
     read -p "(yes/no): " bridgeYN
     if [ "${bridgeYN}" = "no" ]; then
       break
     elif [ "${bridgeYN}" = "yes" ]; then
-      sudo cp /etc/tor/torrc /etc/tor/torrc.orig
-      sudo rm -rf /etc/tor/torrc
-      sudo touch /etc/tor/torrc
       echo ""
-      echo "What bridge class?" 
+      echo "#-------------------------------------------------------------"
+      echo ""
+      echo "Read bridges description ---> https://tb-manual.torproject.org/bridges/"
+      echo ""
+      echo "Pluggable ---> Using bridges in combination with pluggable transports helps to disguise the fact that you are using Tor, but may slow down the connection compared to using ordinary Tor relays."
+      echo "Normal ---> This type of bridges dont disquise you are using Tor, but will help you connect to Tor network."
+      echo ""
+      echo "Which one should I choose?"
+      echo "If your Internet Service Provider blocks torproject.org domain, you can use 'Normal' bridges."
+      echo "If your Government blocks Tor traffic or you are under constant surveillance, you should use 'Pluggable' bridges to mask you are using Tor"
+      echo ""
+      echo "# What bridge class you want?" 
       while [ "${bridgeClass}" != "pluggable" ] || [ "${bridgeClass}" != "normal" ]; do
         read -p "(pluggable/normal): " bridgeClass
         if [ "${bridgeClass}" = "pluggable" ]; then
           echo ""
-          echo "What bride pluggable transport type?"
+          echo "#-------------------------------------------------------------"
+          echo ""
+          echo "Read Tor circumvention techniques ---> https://tb-manual.torproject.org/circumvention/"
+          echo ""
+          echo "Types of pluggable transport."
+          echo "obfs4 ---> Makes Tor traffic look random, and also prevents censors from finding bridges by Internet scanning. You can obtain 'obfs4' bridges as described on the beggining of the questions."
+          echo "meek ---> Makes it look like you are browsing a major web site instead of using Tor. meek-azure makes it look like you are using a Microsoft web site. You can acquire meek bridge by opening Tor Browser and select use 'Use a bridge > Built-in bridge > meek-azure'. Restart Tor Browser, type 'about:config' and search for 'meek'"
+          echo ""
+          echo "Which one should I choose?"
+          echo "China and similar countries blocks 'obfs4', so in these areas your should use 'meek'. 'Meek' bridge is slower (there is only one bridge operator)."
+          echo "On other regions you can use 'obfs4', as it will give the same level of protection. 'Obfs4' bridgs are faster (there are thousands of bridges operators)"
+          echo ""
+          echo "# What bride pluggable transport type you want?"
           while [ "${bridgeType}" != "obfs4" ] || [ "${bridgeType}" != "meek_lite" ]; do
             read -p "(obfs4/meek_lite): " bridgeType
             if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
@@ -290,6 +322,8 @@ if [ ${userHasBridges} -eq 0 ]; then
           done
         fi
         if [ "${bridgeClass}" = "pluggable" ] || [ "${bridgeClass}" = "normal" ]; then
+          echo ""
+          echo "#-------------------------------------------------------------"
           echo ""
           echo "Insert bridges in the following format accordingly to the plugglable type you chose:"
           echo "obfs4 bridges ----> obfs4 ipAdress:port fingerprint cert iat-mode"
@@ -301,30 +335,74 @@ if [ ${userHasBridges} -eq 0 ]; then
           read -p "Insert bridge 3/3: " b3p1 b3p2 b3p3 b3p4 b3p5
           echo ""
           if [ ! -z "${b1p1}" ] || [ ! -z "${b2p1}" ] || [ ! -z "${b3p1}" ]; then
-          echo "" | sudo tee -a /etc/tor/torrc
-          echo "UseBridges 1" | sudo tee -a /etc/tor/torrc
+            echo "##############################################"
+            echo "UseBridges 1"
           fi
           if [ ! -z "${b1p1}" ] || [ ! -z "${b2p1}" ] || [ ! -z "${b3p1}" ] && [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
-            echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/torrc
+            echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed"
           fi
           if [ ! -z ${b1p1} ]; then
-          echo "Bridge ${b1p1} ${b1p2} ${b1p3} ${b1p4} ${b1p5}" | sudo tee -a /etc/tor/torrc
+            echo "Bridge ${b1p1} ${b1p2} ${b1p3} ${b1p4} ${b1p5}"
           fi
           if [ ! -z "${b2p1}" ]; then
-          echo "Bridge ${b2p1} ${b2p2} ${b2p3} ${b2p4} ${b2p5}" | sudo tee -a /etc/tor/torrc
+            echo "Bridge ${b2p1} ${b2p2} ${b2p3} ${b2p4} ${b2p5}"
           fi
           if [ ! -z "${b3p1}" ]; then
-          echo "Bridge ${b3p1} ${b3p2} ${b3p3} ${b3p4} ${b3p5}" | sudo tee -a /etc/tor/torrc
+            echo "Bridge ${b3p1} ${b3p2} ${b3p3} ${b3p4} ${b3p5}"
           fi
-          sudo cp /etc/tor/torrc /etc/tor/bridges
-          break
+          echo "##############################################"
+          echo ""
+          echo "Confirm if the information of bridges above is correct."
+          while [ "${bridgeConfirm}" != "yes" ] || [ "${bridgeConfirm}" != "redo" ]; do
+            read -p "(yes/redo)" bridgeConfirm
+            if [ "${bridgeConfirm}" = "yes" ] || [ "${bridgeConfirm}" = "redo" ]; then
+              break
+            fi
+          done
         fi
+        break
       done
-      break
     fi
+    break
   done
 fi
 echo ""
+}
+
+
+bridgesInsert()
+{
+echo ""
+sudo cp /etc/tor/torrc /etc/tor/torrc.orig
+sudo rm -rf /etc/tor/torrc
+sudo touch /etc/tor/torrc
+if [ ! -z "${b1p1}" ] || [ ! -z "${b2p1}" ] || [ ! -z "${b3p1}" ]; then
+  echo "" | sudo tee -a /etc/tor/torrc
+  echo "UseBridges 1" | sudo tee -a /etc/tor/torrc
+fi
+if [ ! -z "${b1p1}" ] || [ ! -z "${b2p1}" ] || [ ! -z "${b3p1}" ] && [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+  echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/torrc
+fi
+if [ ! -z ${b1p1} ]; then
+  echo "Bridge ${b1p1} ${b1p2} ${b1p3} ${b1p4} ${b1p5}" | sudo tee -a /etc/tor/torrc
+fi
+if [ ! -z "${b2p1}" ]; then
+  echo "Bridge ${b2p1} ${b2p2} ${b2p3} ${b2p4} ${b2p5}" | sudo tee -a /etc/tor/torrc
+fi
+if [ ! -z "${b3p1}" ]; then
+  echo "Bridge ${b3p1} ${b3p2} ${b3p3} ${b3p4} ${b3p5}" | sudo tee -a /etc/tor/torrc
+fi
+echo "" | sudo tee -a /etc/tor/torrc
+sudo cp /etc/tor/torrc /etc/tor/bridges
+}
+
+
+bridgesQuestion
+if [ "${bridgeConfirm}" = "redo" ]; then
+  bridgesQuestion
+else
+  bridgesInsert
+fi
 
 echo "*** Unmask Tor ***"
 sudo systemctl unmask tor@default.service
@@ -1368,5 +1446,6 @@ fi
 # Calculate total seconds
 duration=$(( SECONDS - start ))
 echo "The script took ${duration} seconds to complete"
-date -d@${duration} -u +%H:%M:%S
+totalTime=$(date -d@${duration} -u +%H:%M:%S)
+echo "Time in H:M:S is ${totalTime}"
 echo ""
