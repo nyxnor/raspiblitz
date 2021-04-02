@@ -235,7 +235,7 @@ sudo apt update
 mkdir -p obfs4proxy
 cd obfs4proxy/
 sudo apt install -y obfs4proxy
-apt source -y obfs4proxy
+sudo apt source obfs4proxy
 sudo apt build-dep -y obfs4proxy
 cd obfs4proxy-*
 dpkg-buildpackage -b -uc
