@@ -263,9 +263,10 @@ echo ""
 bridgesQuestion()
 {
 echo ""
-echo "#-------------------------------------------------------------"
+echo "#>>>>>>>>>>>>>>>>>>>>>>>>>>"
 echo ""
-echo "# Configure bridges"
+echo "*** Configure bridges below ***"
+echo ""
 userHasBridges=$(sudo cat /etc/tor/torrc | grep -c 'UseBridges 1')
 echo "userHasBridges=${userHasBridges}"
 if [ ${userHasBridges} -eq 0 ]; then
@@ -407,7 +408,7 @@ echo "*** Unmask Tor ***"
 sudo systemctl unmask tor@default.service
 sudo systemctl daemon-reload
 sudo systemctl reset-failed
-sleep 5
+sudo update-rc.d tor enable
 sudo systemctl start tor@default.service
 sleep 10
 sudo systemctl status tor@default.service --no-pager
