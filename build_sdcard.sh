@@ -229,6 +229,7 @@ fi
 echo "deb-src for ${baseImage} over HTTPS is available"
 echo ""
 
+# The last version for Buster (Stable) today (apr/2021) is obfs4proxy 0.0.7-4. https://tracker.debian.org/pkg/obfs4proxy
 # Only works building from source on ARM (32/64 bit).
 echo "# Building obfs4proxy from the source code ..."
 sudo apt update
