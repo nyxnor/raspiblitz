@@ -178,7 +178,7 @@ fi
 
 echo ""
 echo "*** Update ${baseImage} sources and repo version ***"
-sudo apt update -y
+sudo apt update
 sudo apt dist-upgrade -f -y
 echo ""
 
@@ -231,11 +231,11 @@ echo ""
 
 # Only works building from source on ARM (32/64 bit).
 echo "# Building obfs4proxy from the source code ..."
-sudo apt update -y
+sudo apt update
 mkdir -p obfs4proxy
 cd obfs4proxy/
 sudo apt install -y obfs4proxy
-sudo apt source -y obfs4proxy
+apt source -y obfs4proxy
 sudo apt build-dep -y obfs4proxy
 cd obfs4proxy-*
 dpkg-buildpackage -b -uc
@@ -287,7 +287,7 @@ if [ ${userHasBridges} -eq 0 ]; then
       break
     elif [ "${bridgeYN}" = "yes" ]; then
       echo ""
-      echo "#-------------------------------------------------------------"
+      echo "#----------------------------------------------"
       echo ""
       echo "Read bridges description ---> https://tb-manual.torproject.org/bridges/"
       echo ""
@@ -303,7 +303,7 @@ if [ ${userHasBridges} -eq 0 ]; then
         read -p "(pluggable/normal): " bridgeClass
         if [ "${bridgeClass}" = "pluggable" ]; then
           echo ""
-          echo "#-------------------------------------------------------------"
+          echo "#----------------------------------------------"
           echo ""
           echo "Read Tor circumvention techniques ---> https://tb-manual.torproject.org/circumvention/"
           echo ""
@@ -325,7 +325,7 @@ if [ ${userHasBridges} -eq 0 ]; then
         fi
         if [ "${bridgeClass}" = "pluggable" ] || [ "${bridgeClass}" = "normal" ]; then
           echo ""
-          echo "#-------------------------------------------------------------"
+          echo "#----------------------------------------------"
           echo ""
           echo "Insert bridges in the following format accordingly to the plugglable type you chose:"
           echo "obfs4 bridges ----> obfs4 ipAdress:port fingerprint cert iat-mode"
@@ -474,7 +474,7 @@ echo ""
 
 # Now Tor will be installed in the latest version from Tor Project repo.
 echo "*** Install & Enable Tor ***"
-sudo apt update -y
+sudo apt update
 sudo apt install -y tor tor-arm torsocks
 echo ""
 
@@ -533,7 +533,7 @@ fi
 # update debian
 echo ""
 echo "*** UPDATE ***"
-sudo apt update -y
+sudo apt update
 sudo apt upgrade -f -y
 
 echo ""
