@@ -193,6 +193,8 @@ echo ""
 
 # INSTALL TOR
 # Tor will be installed from Distro repo for who dont have acces to www.torproject.org
+# Afraid of gov detecting you use Tor? https://github.com/rootzoll/raspiblitz/issues/592#issuecomment-491826661
+# This will give you the option to use Tor Pluggable Transport Bridges to mask you are using Tor.
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
 echo "*** INSTALL TOR BY DEFAULT ***"
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
