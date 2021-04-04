@@ -7,7 +7,7 @@
 ##########################################################################
 # setup fresh SD card with image above - login per SSH and run this script:
 ##########################################################################
-# TODO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
+# TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
 
 echo ""
 echo "*****************************************"
@@ -160,7 +160,7 @@ fi
 echo "X) will use OPERATINGSYSTEM ---> '${baseImage}'"
 
 # Distribution
-distribution=$(lsb_release -c | cut -c11-30)
+distribution=$(lsb_release -c | cut -c11-31)
 echo "X) will use DISTRIBUTION ---> '${distribution}'"
 
 # USER-CONFIRMATION
@@ -176,16 +176,51 @@ else
   exit 1
 fi
 
+
+echo "*** Separate sources to different files ***"
+sudo cp /etc/apt/sources.list /etc/apt/sources.list.orig
+sudo rm -rf /etc/apt/sources.list
+sudo touch /etc/apt/sources.list.d/deb.list
+sudo touch /etc/apt/sources.list.d/deb-src.list
+sudo touch /etc/apt/sources.list.d/tor.list
+sudo touch /etc/apt/sources.list.d/tor-src.list
+sudo touch /etc/apt/sources.list.d/tor-apttor.list
+sudo touch /etc/apt/sources.list.d/tor-src-apttor.list
+echo "# Sources are organized now"
 echo ""
-echo "*** Update ${baseImage} sources and repo version ***"
+
+echo "# Adding distro Sources to sources.list ***"
+if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
+  tee -a /etc/apt/sources.list.d/deb.list << EOF
+deb http://deb.debian.org/debian ${distribution} main contrib non-free
+deb http://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free
+deb http://deb.debian.org/debian ${distribution}-updates main contrib non-free
+EOF
+  tee -a /etc/apt/sources.list.d/deb-src.list << EOF
+deb-src http://deb.debian.org/debian ${distribution} main contrib non-free
+EOF
+elif [ "${baseImage}" = "ubuntu" ]; then
+  tee -a /etc/apt/sources.list.d/deb.list << EOF
+deb http://archive.ubuntu.com/ubuntu/ ${distribution} main
+deb http://archive.ubuntu.com/ubuntu/ ${distribution}/updates main
+deb http://archive.ubuntu.com/ubuntu/ ${distribution}-updates main
+EOF
+  tee -a /etc/apt/sources.list.d/deb-src.list << EOF
+deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main
+EOF
+fi
+echo "deb-src for ${baseImage} ${distribution} is available"
+echo ""
+
+echo ""
+echo "*** Update ${baseImage} ${distribution} sources and repo dist version ***"
 sudo apt update
 sudo apt dist-upgrade -f -y
 echo ""
 
 # MASK TOR
-# Wait for user to input bridges to mask he is using Tor
+# Tor will just start after user has the possibility to input bridges to mask he is using Tor
 # This is for security reasons if someone is in danger to no appear in the radar.
-echo ""
 echo "*** Mask Tor before installing ***"
 echo "# Preventing Tor from start before user configuration"
 sudo systemctl mask tor@default.service
@@ -202,38 +237,11 @@ echo ""
 
 # INSTALL TOR BRIDGES PACKAGE
 # Doesnt work the repo version. Only works building from source.
-echo "*** Install obfs4proxy from source ***" 
-echo ""
-
-echo "# Adding distro Sources to sources.list ***"
-#sudo rm -rf /etc/apt/sources.list
-#sudo touch /etc/apt/sources.list
-#if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
-#  echo "deb http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-#  echo "deb http://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
-#  echo "deb http://deb.debian.org/debian ${distribution}-updates main contrib non-free" | sudo tee -a /etc/apt/sources.list
-#  echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-#elif [ "${baseImage}" = "ubuntu" ]; then
-#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
-#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}/updates main" | sudo tee -a /etc/apt/sources.list
-#  echo "deb http://archive.ubuntu.com/ubuntu/ ${distribution}-updates main" | sudo tee -a /etc/apt/sources.list
-#  echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
-#fi
-#echo "deb-src for ${baseImage} over HTTPS is available"
-#echo ""
-
-sudo touch /etc/apt/sources.list.d/buildsources.list
-if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
-  echo "deb-src http://deb.debian.org/debian ${distribution} main contrib non-free" | sudo tee -a /etc/apt/sources.list
-elif [ "${baseImage}" = "ubuntu" ]; then
-  echo "deb-src http://archive.ubuntu.com/ubuntu/ ${distribution} main" | sudo tee -a /etc/apt/sources.list
-fi
-echo "deb-src for ${baseImage} over HTTPS is available"
-echo ""
-
 # The last version for Buster (Stable) today (apr/2021) is obfs4proxy 0.0.7-4. https://tracker.debian.org/pkg/obfs4proxy
 # Only works building from source on ARM (32/64 bit).
-echo "# Building obfs4proxy from the source code ..."
+# Warnings will appear of not using the newest golang, but will work anyway.
+echo "*** Compile obfs4proxy from source ***" 
+echo ""
 sudo apt update
 mkdir -p obfs4proxy
 cd obfs4proxy/
@@ -250,18 +258,39 @@ cd ..
 sudo rm -rf obfs4proxy
 cd
 echo "# Installed $(obfs4proxy --version)"
-sudo rm -rf /etc/apt/sources.list.d/buildsources.list
 echo ""
 
-torDomainStatus=$(ping -c 3 torproject.org | grep -c packets)
-echo "Testing connection to torproject.org"
-echo ${torDomainStatus}
-if [ ${torDomainStatus} -gt 0 ]; then
-  echo "You can reach torproject.org via CLEARNET. But Tor connections could still be blocked, add bridges if you desire."
-else
-  echo "WARNING: You can NOT reach torproject.org via CLEARNET. Configure bridges below! Or use a mirror (less safe and can be old source)"
-fi
+echo "# Commenting deb-src ..."
+sudo sed -i 's/^.//' /etc/apt/sources.list.d/deb-src.list
+echo "deb-src are commented now"
 echo ""
+
+# The security issue here is if the user do know that Tor domain is blocked or if ...
+# the users governement prohibits Tor usage, he can avoid pinging Tor domain
+echo "# Do you want to test if pinging https://www.torproject.org domain is available or blocked?"
+echo "yes ---> If you can access the domain without any problems or your country don't ban Tor usage."
+echo "no ---> If you are under constant surveillance, censorship. This will prevent leaking to your ISP or GOV you wanted to reach Tor Project."
+echo "Every security mitigation is your choice. This script why try to prevent the maximum amount of vulnerabilities."
+while [ "${torDomainYN}" != "yes" ] || [ "${torDomainYN}" != "no" ]; do
+  read -p "(yes/no): " domainYN
+  if [ "${torDomainYN}" = "yes" ]; then
+    echo "Testing connection to torproject.org"
+    torDomainStatus=$(ping -c 3 torproject.org | grep -c '3 received')
+    echo "Status=${torDomainStatus}"
+    if [ ${torDomainStatus} -gt 0 ]; then
+      echo "You can reach torproject.org via CLEARNET. But Tor connections could still be blocked, add bridges if you desire."
+    else
+      echo "WARNING: You can NOT reach torproject.org via CLEARNET. Configure bridges below!"
+      echo "Reaching Tor sources will be acquired using apt-transport-tor."
+    fi
+    break
+  elif [ "${torDomainYN}" = "no" ]; then
+    echo "You chose not to ping https://www.torproject.org domain. Reaching Tor sources will be acquired using apt-transport-tor."
+    break	
+  fi
+done
+echo ""
+
 
 bridgesQuestion()
 {
@@ -407,6 +436,8 @@ else
   bridgesInsert
 fi
 
+# tor@default vanished from unit file warning if normal. This message will stop after reboot.
+# Doing 'update-rc.d tor enable' will enable Tor on boot after unit vanishing.
 echo "*** Unmask Tor ***"
 sudo systemctl unmask tor@default.service
 sudo systemctl daemon-reload
@@ -432,6 +463,8 @@ else
   exit 1
 fi
 
+# torsocks wget either way to acquire the keys, as if Tor is running, this wont cause any issues, just some seconds more.
+# Yes, Tor needs to be running, but it will quit on the test above if not running. Only way to bypass censorship and get the keys if domain is blocked
 echo "*** Adding KEYS deb.torproject.org ***"
 # fix for v1.6 base image https://github.com/rootzoll/raspiblitz/issues/1906#issuecomment-755299759
 torsocks wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --import
@@ -444,41 +477,39 @@ fi
 echo "- OK key added"
 echo ""
 
-echo "*** Adding Tor Sources to sources.list ***"
-torSourceListAvailable=$(sudo grep -c 'https://deb.torproject.org/torproject.org' /etc/apt/sources.list)
-echo "torSourceListAvailable=${torSourceListAvailable}"
-torSourceListAvailableOnion=$(sudo cat /etc/apt/sources.list | grep -c 'tor://deb.torproject.org/torproject.org')
-echo "torSourceListAvailableOnion=${torSourceListAvailableOnion}"  
 
+echo "*** Adding Tor Sources to sources lists ***"
 if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ] || [ "${baseImage}" = "ubuntu" ]; then
-  if [ ${torSourceListAvailable} -eq 0 ]; then
-    echo "- adding HTTPS TOR sources ..."
-    echo "- using https://deb.torproject.org/torproject.org ${distribution}"
-    echo "deb https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
-    echo "deb-src https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
+  if [ ${torDomainStatus} -eq 0 ] || [ "${torDomainYN}" = "no" ];then
+    echo "- adding Tor sources tor+https:// ..."
+    tee -a /etc/apt/sources.list.d/tor-apttor.list << EOF
+deb tor+https://deb.torproject.org/torproject.org ${distribution} main
+EOF
+    tee -a /etc/apt/sources.list.d/tor-src-apttor.list << EOF
+#deb-src tor+https://deb.torproject.org/torproject.org ${distribution} main
+EOF
+    echo "OK - Tor sources added"
   else
-    echo "!!! FAIL: No HTTPS Tor sources for os: ${baseImage}"
-    exit 1
+    echo "- adding Tor sources https:// ..."
+    tee -a /etc/apt/sources.list.d/tor.list << EOF
+deb https://deb.torproject.org/torproject.org ${distribution} main
+EOF
+    tee -a /etc/apt/sources.list.d/tor-src.list << EOF
+#deb-src https://deb.torproject.org/torproject.org ${distribution} main
+EOF
+    echo "OK - Tor sources added"
   fi
-  if [ ${torSourceListAvailableOnion} -eq 0 ]; then
-    echo "- adding ONION TOR sources ..."
-    echo "- using tor://deb.torproject.org/torproject.org ${distribution}"
-    echo "deb tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list
-    echo "deb-src tor+https://deb.torproject.org/torproject.org ${distribution} main" | sudo tee -a /etc/apt/sources.list  
-  else
-    echo "!!! FAIL: No ONION Tor sources for os: ${baseImage}"
-    exit 1
-  fi
-  echo "- OK sources added"
 else
-  echo "TOR sources are available"
+  echo "!!! FAIL: No Tor sources for os: ${baseImage}"
+  exit 1
 fi
 echo ""
+
 
 # Now Tor will be installed in the latest version from Tor Project repo.
 echo "*** Install & Enable Tor ***"
 sudo apt update
-sudo apt install -y tor tor-arm torsocks
+sudo apt install -y tor
 echo ""
 
 # FIXING LOCALES
@@ -995,12 +1026,13 @@ if [ "${baseImage}" = "raspbian" ]||[ "${baseImage}" = "raspios_arm64"  ]||\
 
 fi
 
+# Not been done though Tor, potential anonimity risk. Through Tor requires captchas, no solution yet.
 # *** FALLBACK NODE LIST *** see https://github.com/rootzoll/raspiblitz/issues/1888
 echo "*** FALLBACK NODE LIST ***"
 sudo -u admin curl -H "Accept: application/json; indent=4" https://bitnodes.io/api/v1/snapshots/latest/ -o /home/admin/fallback.nodes
 byteSizeList=$(sudo -u admin stat -c %s /home/admin/fallback.nodes)
 if [ ${#byteSizeList} -eq 0 ] || [ ${byteSizeList} -lt 1024 ]; then 
-  echo "FAIL: downloading FALLBACK NODE LIST --> https://bitnodes.io/api/v1/snapshots/latest/"
+  echo "FAIL: failed to download FALLBACK NODE LIST --> https://bitnodes.io/api/v1/snapshots/latest/"
   exit 1
 fi
 
@@ -1021,7 +1053,7 @@ if [ "${fatpack}" == "true" ]; then
   sudo apt-get install -y ssmtp
   sudo apt-get install -y unclutter xterm python3-pyqt5
   sudo apt-get install -y xfonts-terminus
-  sudo apt-get install -y nginx apache2-utils
+  sudo apt-get install -y apache2-utils
   sudo apt-get install -y nginx
   sudo apt-get install -y python3-jinja2
   sudo apt-get install -y socat
@@ -1446,7 +1478,9 @@ if [ "${lcdInstalled}" == "GPIO" ]; then
   fi
 fi
 
+
 # Calculate total seconds
+echo "##### ABSOLUTE RUNTIME ####"
 duration=$(( SECONDS - start ))
 echo "The script took ${duration} seconds to complete"
 totalTime=$(date -d@${duration} -u +%H:%M:%S)
