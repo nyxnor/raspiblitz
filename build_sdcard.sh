@@ -9,7 +9,8 @@
 # wget https://raw.githubusercontent.com/rootzoll/raspiblitz/v1.7/build_sdcard.sh && sudo bash build_sdcard.sh
 ##########################################################################
 # TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
-# Find https debian source. ISP will know you downloaded Tor from the debian repo https://support.torproject.org/https/https-1/
+# ROOTZOLL,EXCLUDE THIS AFTER READING IT: Yes, I put torsocks on bitcoin and lnd downloads, cause why not? Your ISP doesnt have to know that you want smth to do with bitcoin.
+# OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "Build script to craft the Blitz directly from the repo chosen"
@@ -233,12 +234,12 @@ echo ""
 echo "# Adding distro Sources to sources.list ***"
 if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ]; then
   tee -a /etc/apt/sources.list.d/deb.list << EOF
-deb http://deb.debian.org/debian ${distribution} main contrib non-free
-deb http://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free
-deb http://deb.debian.org/debian ${distribution}-updates main contrib non-free
+deb https://deb.debian.org/debian ${distribution} main contrib non-free
+deb https://deb.debian.org/debian-security/ ${distribution}/updates main contrib non-free
+deb https://deb.debian.org/debian ${distribution}-updates main contrib non-free
 EOF
   tee -a /etc/apt/sources.list.d/deb-src.list << EOF
-deb-src http://deb.debian.org/debian ${distribution} main contrib non-free
+deb-src https://deb.debian.org/debian ${distribution} main contrib non-free
 EOF
 elif [ "${baseImage}" = "ubuntu" ]; then
   tee -a /etc/apt/sources.list.d/deb.list << EOF
@@ -272,7 +273,6 @@ echo ""
 # Afraid of gov detecting you use Tor? https://github.com/rootzoll/raspiblitz/issues/592#issuecomment-491826661
 # This will give you the option to use Tor Pluggable Transport Bridges to mask you are using Tor.
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
-# Needs a https debian source because ISP knows the data cause debian repo is https (withouts 's') https://support.torproject.org/https/https-1/
 echo "*** INSTALL TOR BY DEFAULT ***"
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
 echo ""
