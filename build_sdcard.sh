@@ -9,6 +9,45 @@
 ##########################################################################
 # TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
 
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
+  echo "Build script to craft the Blitz directly from the repo chosen"
+  echo "build_sdcard.sh [fatpack ][githubUser ][githubBranch][lcdInstalled][tweakBootdrives][modeWifi]"
+  echo "Default options [(1)false][(2)rootzoll][   (3)dev   ][  (4)true   ][    (5)true    ][(6)true ]"
+  echo ""
+  echo "1st optional parameter: FATPACK [true|false] --> default=false"
+  echo "# When 'true' it will pre-install needed frameworks for additional apps and features"
+  echo "# as a convenience to safe on install and update time for additional apps."
+  echo "# When 'false' it will just install the bare minimum and additional apps will just"
+  echo "# install needed frameworks and libraries on demand when activated by user."
+  echo "# Use 'false' if you want to run your node without: go, dot-net, nodejs, docker, ..."
+  echo ""
+  echo "2st optional parameter: GITHUB-USERNAME [rootzoll|yourFork] --> default=rootzoll"
+  echo "# could be any valid github-user that has a fork of the raspiblitz repo - 'rootzoll' is default"
+  echo "# The 'raspiblitz' repo of this user is used to provisioning sd card"
+  echo "# with raspiblitz assets/scripts later on."
+  echo "# If this parameter is set also the branch needs to be given (see next parameter)."
+  echo ""
+  echo "3rd optional parameter: GITHUB-BRANCH [dev|v1.7] --> default=dev"
+  echo "# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default"
+  echo ""
+  echo "4rd optional parameter: LCD-DRIVER [true|false] --> default=true"
+  echo "# could be 'false' or 'GPIO' (default)"
+  echo "# Use 'false' if you want to build an image that runs without a specialized LCD (like the GPIO)."
+  echo "# On 'false' the standard video output is used (HDMI) by default."
+  echo ""
+  echo "5rd optional parameter: TWEAK-BOOTDRIVE [true|false] --> default=true"
+  echo "# could be 'true' (default) or 'false'"
+  echo "# If 'true' it will try (based on the base OS) to optimize the boot drive."
+  echo "# If 'false' this will skipped."
+  echo ""
+  echo "6rd optional parameter: WIFI [true|false] --> default=true"
+  echo "# could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)"
+  echo "# If 'false' WIFI will be deactivated by default"
+  echo "# If 'true' WIFI will be activated by with default country code 'US'"
+  echo "# If any valid wifi country code Wifi will be activated with that country code by default"
+  exit 1
+fi
+
 echo ""
 echo "*****************************************"
 echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.7   *"
@@ -18,7 +57,7 @@ echo "For details on optional parameters - see build script source code:"
 # set starting time
 start=$SECONDS
 
-# 1st optional paramater: FATPACK
+# 1st optional parameter: FATPACK
 # -------------------------------
 # could be 'true' or 'false' (default)
 # When 'true' it will pre-install needed frameworks for additional apps and features
@@ -38,7 +77,7 @@ else
   echo "1) will use FATPACK --> '${fatpack}'"
 fi
 
-# 2st optional paramater: GITHUB-USERNAME
+# 2st optional parameter: GITHUB-USERNAME
 # ---------------------------------------
 # could be any valid github-user that has a fork of the raspiblitz repo - 'rootzoll' is default
 # The 'raspiblitz' repo of this user is used to provisioning sd card 
@@ -50,7 +89,7 @@ if [ ${#githubUser} -eq 0 ]; then
 fi
 echo "2) will use GITHUB-USERNAME --> '${githubUser}'"
 
-# 3rd optional paramater: GITHUB-BRANCH
+# 3rd optional parameter: GITHUB-BRANCH
 # -------------------------------------
 # could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default
 githubBranch="$3"
@@ -59,7 +98,7 @@ if [ ${#githubBranch} -eq 0 ]; then
 fi
 echo "3) will use GITHUB-BRANCH --> '${githubBranch}'"
 
-# 4rd optional paramater: LCD-DRIVER
+# 4rd optional parameter: LCD-DRIVER
 # ----------------------------------------
 # could be 'false' or 'GPIO' (default)
 # Use 'false' if you want to build an image that runs without a specialized LCD (like the GPIO).
@@ -75,7 +114,7 @@ else
   echo "4) will use LCD-DRIVER --> '${lcdInstalled}'"
 fi
 
-# 5rd optional paramater: TWEAK-BOOTDRIVE
+# 5rd optional parameter: TWEAK-BOOTDRIVE
 # ---------------------------------------
 # could be 'true' (default) or 'false'
 # If 'true' it will try (based on the base OS) to optimize the boot drive.
@@ -91,7 +130,7 @@ else
   echo "5) will use TWEAK-BOOTDRIVE --> '${tweakBootdrives}'"
 fi
 
-# 6rd optional paramater: WIFI
+# 6rd optional parameter: WIFI
 # ---------------------------------------
 # could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)
 # If 'false' WIFI will be deactivated by default
