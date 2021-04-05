@@ -9,6 +9,7 @@
 # wget https://raw.githubusercontent.com/rootzoll/raspiblitz/v1.7/build_sdcard.sh && sudo bash build_sdcard.sh
 ##########################################################################
 # TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
+# Find https debian source. ISP will know you downloaded Tor from the debian repo https://support.torproject.org/https/https-1/
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "Build script to craft the Blitz directly from the repo chosen"
