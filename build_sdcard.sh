@@ -271,6 +271,7 @@ echo ""
 # Afraid of gov detecting you use Tor? https://github.com/rootzoll/raspiblitz/issues/592#issuecomment-491826661
 # This will give you the option to use Tor Pluggable Transport Bridges to mask you are using Tor.
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
+# Needs a https debian source because ISP knows the data cause debian repo is https (withouts 's') https://support.torproject.org/https/https-1/
 echo "*** INSTALL TOR BY DEFAULT ***"
 sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
 echo ""
