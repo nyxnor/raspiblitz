@@ -9,7 +9,9 @@
 # wget https://raw.githubusercontent.com/rootzoll/raspiblitz/v1.7/build_sdcard.sh && sudo bash build_sdcard.sh
 ##########################################################################
 # TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
-# ROOTZOLL,EXCLUDE THIS AFTER READING IT: Yes, I put torsocks on bitcoin and lnd downloads, cause why not? Your ISP doesnt have to know that you want smth to do with bitcoin.
+# ROOTZOLL,EXCLUDE THIS AFTER READING IT: Yes, I put torsocks on bitcoin and lnd downloads, cause why not? ...
+#Your ISP doesnt have to know that you want smth to do with bitcoin. Although you have to reach the Blitz repo, it can be done by...
+#It can be done by downloading the build_sdcard.sh script on the desktop trough Tor or VPN then transfering via usb stick to the pi. 
 # OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
