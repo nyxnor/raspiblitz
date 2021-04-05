@@ -253,7 +253,7 @@ echo "deb-src for ${baseImage} ${distribution} is available"
 echo ""
 
 echo ""
-echo "*** Update ${baseImage} ${distribution} sources and repo dist version ***"
+echo "*** Update and Upgrade ${baseImage} ${distribution} sources ***"
 sudo apt update
 sudo apt dist-upgrade -f -y
 echo ""
