@@ -308,13 +308,17 @@ echo ""
 # the users governement prohibits Tor usage, he can avoid pinging Tor domain
 echo "# Do you want to test if pinging https://www.torproject.org domain is available or blocked?"
 echo "yes ---> If you can access the domain without any problems or your country don't ban Tor usage."
-echo "no ---> If you are under constant surveillance, censorship. This will prevent leaking to your ISP or GOV you wanted to reach Tor Project."
-echo "Every security mitigation is your choice. This script why try to prevent the maximum amount of vulnerabilities."
+echo "        Reaching ${torDomainYN} will be made through clearnet, not anonymous."
+echo "no ---> If you are under constant surveillance, censorship. This will prevent leaking to your ISP"
+echo "        or GOV you wanted to reach Tor Project."
+echo "        Reaching ${torDomainYN} will be made through the Tor network, anonimously."
+echo ""
+echo "Test connectivity to torproject.org?"
 while [ "${torDomainYN}" != "yes" ] || [ "${torDomainYN}" != "no" ]; do
   read -p "(yes/no): " torDomainYN
   if [ "${torDomainYN}" = "yes" ]; then
     echo "Testing connection to torproject.org"
-    torDomainStatus=$(ping -c 3 torproject.org | grep -c '3 received')
+    torDomainStatus=$(sudo ping -c 3 torproject.org | grep -c '3 received')
     echo "Status=${torDomainStatus}"
     if [ ${torDomainStatus} -gt 0 ]; then
       echo "You can reach torproject.org via CLEARNET. But Tor connections could still be blocked, add bridges if you desire."
@@ -329,7 +333,6 @@ while [ "${torDomainYN}" != "yes" ] || [ "${torDomainYN}" != "no" ]; do
   fi
 done
 echo ""
-
 
 bridgesQuestion()
 {
