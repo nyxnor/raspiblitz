@@ -311,7 +311,7 @@ echo "yes ---> If you can access the domain without any problems or your country
 echo "no ---> If you are under constant surveillance, censorship. This will prevent leaking to your ISP or GOV you wanted to reach Tor Project."
 echo "Every security mitigation is your choice. This script why try to prevent the maximum amount of vulnerabilities."
 while [ "${torDomainYN}" != "yes" ] || [ "${torDomainYN}" != "no" ]; do
-  read -p "(yes/no): " domainYN
+  read -p "(yes/no): " torDomainYN
   if [ "${torDomainYN}" = "yes" ]; then
     echo "Testing connection to torproject.org"
     torDomainStatus=$(ping -c 3 torproject.org | grep -c '3 received')
