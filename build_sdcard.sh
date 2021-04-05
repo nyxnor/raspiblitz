@@ -218,6 +218,7 @@ fi
 echo "*** Separate sources to different files ***"
 sudo cp /etc/apt/sources.list /etc/apt/sources.list.orig
 sudo rm -rf /etc/apt/sources.list
+sudo rm -rf /etc/apt/sources.list.d/*
 sudo touch /etc/apt/sources.list.d/deb.list
 sudo touch /etc/apt/sources.list.d/deb-src.list
 sudo touch /etc/apt/sources.list.d/tor.list
