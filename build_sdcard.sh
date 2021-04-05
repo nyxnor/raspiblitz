@@ -519,6 +519,7 @@ fi
 echo "- OK key added"
 echo ""
 
+# deb-src from Tor repo will be uncommented on internet.tor.sh to build it from source when calling the Update option in that script.
 echo "*** Adding Tor Sources to sources lists ***"
 torDomain="torproject.org"
 if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ] || [ "${baseImage}" = "ubuntu" ]; then
