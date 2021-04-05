@@ -519,34 +519,34 @@ fi
 echo "- OK key added"
 echo ""
 
-# The security issue here is if the user do know that Tor domain is blocked or if ...
-# the users governement prohibits Tor usage, he can avoid pinging Tor domain
-echo "# Do you want to test if pinging https://www.torproject.org domain is available or blocked?"
-echo "yes ---> If you can access the domain without any problems or your country don't ban Tor usage."
-echo "        Reaching ${torDomainYN} will be made through clearnet, not anonymous."
-echo "no ---> If you are under constant surveillance, censorship. This will prevent leaking to your ISP"
-echo "        or GOV you wanted to reach Tor Project."
-echo "        Reaching ${torDomainYN} will be made through the Tor network, anonimously."
-echo ""
-echo "Test connectivity to torproject.org?"
-while [ "${torDomainYN}" != "yes" ] || [ "${torDomainYN}" != "no" ]; do
-  read -p "(yes/no): " torDomainYN
-  if [ "${torDomainYN}" = "yes" ]; then
-    echo "Testing connection to torproject.org"
-    torDomainStatus=$(sudo ping -c 3 torproject.org | grep -c '3 received')
-    echo "Status=${torDomainStatus}"
-    if [ ${torDomainStatus} -gt 0 ]; then
-      echo "You can reach torproject.org via CLEARNET. But Tor connections could still be blocked, add bridges if you desire."
-    else
-      echo "WARNING: You can NOT reach torproject.org via CLEARNET. Configure bridges below!"
-      echo "Reaching Tor sources will be acquired using apt-transport-tor."
-    fi
-    break
-  elif [ "${torDomainYN}" = "no" ]; then
-    echo "You chose not to ping https://www.torproject.org domain. Reaching Tor sources will be acquired using apt-transport-tor."
-    break	
+echo "*** Adding Tor Sources to sources lists ***"
+torDomain="torproject.org"
+if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "raspios_arm64" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "dietpi" ] || [ "${baseImage}" = "ubuntu" ]; then
+  if [ "${torDomainStatus}" = "0" ] || [ "${torDomainYN}" = "no" ];then
+    echo "- adding 'deb tor+https://' for Tor to /etc/apt/sources.list.d/tor-apttor.list"
+    tee -a /etc/apt/sources.list.d/tor-apttor.list << EOF
+deb tor+https://deb.${torDomain}/${torDomain} ${distribution} main
+EOF
+    echo "- adding 'deb-src tor+https://' for Tor to /etc/apt/sources.list.d/tor-src-apttor.list"
+    tee -a /etc/apt/sources.list.d/tor-src-apttor.list << EOF
+#deb-src tor+https://deb.${torDomain}/${torDomain} ${distribution} main
+EOF
+    echo "OK - Tor sources added"
+  else
+    echo "- adding 'deb https://' for Tor to /etc/apt/sources.list.d/tor.list"
+    tee -a /etc/apt/sources.list.d/tor.list << EOF
+deb https://deb.${torDomain}/${torDomain} ${distribution} main
+EOF
+    echo "- adding 'deb-src https://' for Tor to /etc/apt/sources.list.d/tor-src.list"
+    tee -a /etc/apt/sources.list.d/tor-src.list << EOF
+#deb-src https://deb.${torDomain}/${torDomain} ${distribution} main
+EOF
+    echo "OK - Tor sources added"
   fi
-done
+else
+  echo "!!! FAIL: No Tor sources for os: ${baseImage}"
+  exit 1
+fi
 echo ""
 
 # Now Tor will be installed in the latest version from Tor Project repo.
