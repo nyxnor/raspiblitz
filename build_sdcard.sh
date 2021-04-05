@@ -6,13 +6,14 @@
 # SHA256: 6ce59adc2b432f4a6c0a8827041b472b837c4f165ab7751fdc35f2d1c3ac518c
 ##########################################################################
 # setup fresh SD card with image above - login per SSH and run this script:
+# wget https://raw.githubusercontent.com/rootzoll/raspiblitz/v1.7/build_sdcard.sh && sudo bash build_sdcard.sh
 ##########################################################################
 # TO DO: separate torrc with torrc.d and hidden-services.d https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-811912879
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "Build script to craft the Blitz directly from the repo chosen"
   echo "build_sdcard.sh [fatpack ][githubUser ][githubBranch][lcdInstalled][tweakBootdrives][modeWifi]"
-  echo "Default options [(1)false][(2)rootzoll][   (3)dev   ][  (4)true   ][    (5)true    ][(6)true ]"
+  echo "Default options [(1)false][(2)rootzoll][   (3)v1.7   ][  (4)true   ][    (5)true    ][(6)true ]"
   echo ""
   echo "1st optional parameter: FATPACK [true|false] --> default=false"
   echo "# When 'true' it will pre-install needed frameworks for additional apps and features"
@@ -27,7 +28,7 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "# with raspiblitz assets/scripts later on."
   echo "# If this parameter is set also the branch needs to be given (see next parameter)."
   echo ""
-  echo "3rd optional parameter: GITHUB-BRANCH [dev|anyBranch] --> default=dev"
+  echo "3rd optional parameter: GITHUB-BRANCH [v1.7|anyBranch] --> default=v1.7"
   echo "# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default"
   echo ""
   echo "4rd optional parameter: LCD-DRIVER [true|false] --> default=true"
