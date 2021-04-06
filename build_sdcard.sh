@@ -34,7 +34,7 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "# If this parameter is set also the branch needs to be given (see next parameter)."
   echo ""
   echo "3rd optional parameter: GITHUB-BRANCH [v1.7|anyBranch] --> default=v1.7"
-  echo "# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default"
+  echo "# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'v1.7' is default"
   echo ""
   echo "4rd optional parameter: LCD-DRIVER [true|false] --> default=true"
   echo "# could be 'false' or 'GPIO' (default)"
