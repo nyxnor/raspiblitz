@@ -15,9 +15,6 @@
 # OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
 # USER: Ubuntu does not have an https (see the s), so that is bad when you need to hide from the ISP the data you downloaded https://support.torproject.org/https/https-1/
 
-
-
-
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "build_sdcard.sh v1.7 (arm64/amd64)"
   echo "Usage: sudo bash build_sdcard.sh [options]"
@@ -36,7 +33,9 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "sudo bash build_sdcard.sh [true] [openoms] [v1.7] [false] [false] [false]"
   echo ""
   echo "Hardened options:"
-  echo "  Acquisition of Tor package"
+  echo "  Distro:"
+  echo "    Debian (Ubuntu does not use https on their sources and their Tor packages are outdated)"  
+  echo "  Acquisition of Tor package:"
   echo "    Download via Tor Browser and transport via usb stick to the SBC."
   echo "    Modify the script to fit your needs."
   echo "  Executing the script"
