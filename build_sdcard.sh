@@ -31,7 +31,7 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "There are 6 options that can be set in the specific order they are presented."
   echo ""
   echo "Default:"
-  echo "Header options  [ (1)false ][ (2)rootzoll ][   (3)${blitzVersion}    ][    (4)true   ][     (5)true     ][ (6)true  ]"
+  echo "Default options [ (1)false ][ (2)rootzoll ][   (3)${blitzVersion}    ][    (4)true   ][     (5)true     ][ (6)true  ]"
   echo "build_sdcard.sh [  fatpack ][  githubUser ][ githubBranch ][ lcdInstalled ][ tweakBootdrives ][ modeWifi ]"
   echo ""
   echo "Usage example:"
