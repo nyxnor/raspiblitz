@@ -17,8 +17,8 @@
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "Build script to craft the Blitz directly from the repo chosen"
-  echo "build_sdcard.sh [fatpack ][githubUser ][githubBranch][lcdInstalled][tweakBootdrives][modeWifi]"
-  echo "Default options [(1)false][(2)rootzoll][   (3)v1.7   ][  (4)true  ][    (5)true    ][(6)true ]"
+  echo "build_sdcard.sh [  fatpack ][  githubUser ][ githubBranch ][ lcdInstalled ][ tweakBootdrives ][ modeWifi ]"
+  echo "Default options [ (1)false ][ (2)rootzoll ][   (3)v1.7    ][    (4)true   ][     (5)true     ][ (6)true  ]"
   echo ""
   echo "1st optional parameter: FATPACK [true|false] --> default=false"
   echo "# When 'true' it will pre-install needed frameworks for additional apps and features"
