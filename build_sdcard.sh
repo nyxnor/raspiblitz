@@ -4,6 +4,7 @@
 # raspios_arm64-2020-08-24
 # https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2020-08-24/
 # SHA256: 6ce59adc2b432f4a6c0a8827041b472b837c4f165ab7751fdc35f2d1c3ac518c
+# Build details https://github.com/rootzoll/raspiblitz/tree/v1.7#build-the-sd-card-image
 ##########################################################################
 # setup fresh SD card with image above - login per SSH and run this script:
 # wget https://raw.githubusercontent.com/rootzoll/raspiblitz/v1.7/build_sdcard.sh && sudo bash build_sdcard.sh
