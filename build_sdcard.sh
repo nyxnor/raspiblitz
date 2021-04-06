@@ -302,6 +302,14 @@ echo ""
 echo "*** Mask Tor before installing ***"
 echo "# Preventing Tor from start before user configuration"
 sudo systemctl mask tor@default.service
+isTorMasked=$(sudo systemctl is-enabled tor@default)
+sleep 3
+if [ ${isTorMasked} != "masked" ]; then
+  echo "Failed to mask Tor, open an issue on github"
+  exit 0
+else
+  echo "Tor is masked now"
+fi
 echo ""
 
 # INSTALL TOR
