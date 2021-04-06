@@ -15,8 +15,14 @@
 # OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
 # USER: Ubuntu does not have an https (see the s), so that is bad when you need to hide from the ISP the data you downloaded https://support.torproject.org/https/https-1/
 
+# Facilitate to build from forked repo. Instead of changing on 'if' statements, change here for ease to use and see.
+#blitzVersion="v1.7"
+#blitzCrafter="rootzol"
+blitzVersion="patch-5"
+blitzCrafter="nyxnor"
+
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
-  echo "build_sdcard.sh v1.7 (arm64/amd64)"
+  echo "build_sdcard.sh ${blitzVersion} (arm64/amd64)"
   echo "Usage: sudo bash build_sdcard.sh [options]"
   echo ""
   echo "Build script is the executable that crafts the Blitz directly from source,"
@@ -25,12 +31,12 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "There are 6 options that can be set in the specific order they are presented."
   echo ""
   echo "Default:"
-  echo "Header options  [ (1)false ][ (2)rootzoll ][   (3)v1.7    ][    (4)true   ][     (5)true     ][ (6)true  ]"
+  echo "Header options  [ (1)false ][ (2)rootzoll ][   (3)${blitzVersion}    ][    (4)true   ][     (5)true     ][ (6)true  ]"
   echo "build_sdcard.sh [  fatpack ][  githubUser ][ githubBranch ][ lcdInstalled ][ tweakBootdrives ][ modeWifi ]"
   echo ""
   echo "Usage example:"
-  echo "sudo bash build_sdcard.sh [false] [rootzoll] [v1.7] [true] [true] [true]"
-  echo "sudo bash build_sdcard.sh [true] [openoms] [v1.7] [false] [false] [false]"
+  echo "sudo bash build_sdcard.sh [false] [rootzoll] [${blitzVersion}] [true] [true] [true]"
+  echo "sudo bash build_sdcard.sh [true] [openoms] [${blitzVersion}] [false] [false] [false]"
   echo ""
   echo "Hardened options:"
   echo "  Distro:"
@@ -39,7 +45,7 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "    Download via Tor Browser and transport via usb stick to the SBC."
   echo "    Modify the script to fit your needs."
   echo "  Executing the script"
-  echo "    sudo bash build_sdcard.sh [false] [yourUser] [v'Latest'] [boolean] [true] [false]"
+  echo "    sudo bash build_sdcard.sh [false] [yourUser] [${blitzVersion}] [true|false] [true] [false]"
   echo "  During execution:"
   echo "    Test connectivity to Tor Project domain: no"
   echo "    Add bridges: yes"
@@ -61,8 +67,8 @@ if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] 
   echo "                      with raspiblitz assets/scripts later on."
   echo "                      If this parameter is set also the branch needs to be given (see next parameter)."
   echo "" 
-  echo "[v1.7|anyBranch]      3rd: GITHUB-BRANCH [v1.7|anyBranch] --> default=v1.7"
-  echo "                      could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'v1.7' is default"
+  echo "[${blitzVersion}|anyBranch]      3rd: GITHUB-BRANCH [${blitzVersion}|anyBranch] --> default=${blitzVersion}"
+  echo "                      could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - '${blitzVersion}' is default"
   echo ""
   echo "[true|false]          4th: LCD-DRIVER [true|false] --> default=true"
   echo "                      could be 'false' or 'GPIO' (default)"
@@ -82,7 +88,7 @@ fi
 
 echo ""
 echo "*****************************************"
-echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.7   *"
+echo "* RASPIBLITZ SD CARD IMAGE SETUP ${blitzVersion}   *"
 echo "*****************************************"
 echo "For details on optional parameters - see build script source code:"
 
@@ -117,16 +123,16 @@ fi
 # If this parameter is set also the branch needs to be given (see next parameter).
 githubUser="$2"
 if [ ${#githubUser} -eq 0 ]; then
-  githubUser="Ben10Brasileiro"
+  githubUser=${blitzCrafter}
 fi
 echo "2) will use GITHUB-USERNAME --> '${githubUser}'"
 
 # 3rd optional parameter: GITHUB-BRANCH
 # -------------------------------------
-# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default
+# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'v1.7' is default
 githubBranch="$3"
 if [ ${#githubBranch} -eq 0 ]; then
-  githubBranch="patch-5"
+  githubBranch="${blitzVersion}"
 fi
 echo "3) will use GITHUB-BRANCH --> '${githubBranch}'"
 
