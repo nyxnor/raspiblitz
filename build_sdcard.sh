@@ -13,6 +13,7 @@
 #Your ISP doesnt have to know that you want smth to do with bitcoin. Although you have to reach the Blitz repo, it can be done by...
 #It can be done by downloading the build_sdcard.sh script on the desktop trough Tor or VPN then transfering via usb stick to the pi. 
 # OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
+# USER: Ubuntu does not have an https (see the s), so that is bad when you need to hide from the ISP the data you downloaded https://support.torproject.org/https/https-1/
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
   echo "Build script to craft the Blitz directly from the repo chosen"
