@@ -15,42 +15,69 @@
 # OPENOMS, EXCLUDE THIS AFTER READING IT: If enabling VPN, the ping torproject part wont work, just FYI if you try it.
 # USER: Ubuntu does not have an https (see the s), so that is bad when you need to hide from the ISP the data you downloaded https://support.torproject.org/https/https-1/
 
+
+
+
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ] ; then
-  echo "Build script to craft the Blitz directly from the repo chosen"
+  echo "build_sdcard.sh v1.7 (arm64/amd64)"
+  echo "Usage: sudo bash build_sdcard.sh [options]"
+  echo ""
+  echo "Build script is the executable that crafts the Blitz directly from source,"
+  echo "even from your own forked repo, with the opportunity to customize the"
+  echo "packages installed, making your own image with XXprepareRelease.sh later on."
+  echo "There are 6 options that can be set in the specific order they are presented."
+  echo ""
+  echo "Default:"
+  echo "Header options  [ (1)false ][ (2)rootzoll ][   (3)v1.7    ][    (4)true   ][     (5)true     ][ (6)true  ]"
   echo "build_sdcard.sh [  fatpack ][  githubUser ][ githubBranch ][ lcdInstalled ][ tweakBootdrives ][ modeWifi ]"
-  echo "Default options [ (1)false ][ (2)rootzoll ][   (3)v1.7    ][    (4)true   ][     (5)true     ][ (6)true  ]"
   echo ""
-  echo "1st optional parameter: FATPACK [true|false] --> default=false"
-  echo "# When 'true' it will pre-install needed frameworks for additional apps and features"
-  echo "# as a convenience to safe on install and update time for additional apps."
-  echo "# When 'false' it will just install the bare minimum and additional apps will just"
-  echo "# install needed frameworks and libraries on demand when activated by user."
-  echo "# Use 'false' if you want to run your node without: go, dot-net, nodejs, docker, ..."
+  echo "Usage example:"
+  echo "sudo bash build_sdcard.sh [false] [rootzoll] [v1.7] [true] [true] [true]"
+  echo "sudo bash build_sdcard.sh [true] [openoms] [v1.7] [false] [false] [false]"
   echo ""
-  echo "2st optional parameter: GITHUB-USERNAME [rootzoll|yourUser] --> default=rootzoll"
-  echo "# could be any valid github-user that has a fork of the raspiblitz repo - 'rootzoll' is default"
-  echo "# The 'raspiblitz' repo of this user is used to provisioning sd card"
-  echo "# with raspiblitz assets/scripts later on."
-  echo "# If this parameter is set also the branch needs to be given (see next parameter)."
+  echo "Hardened options:"
+  echo "  Acquisition of Tor package"
+  echo "    Download via Tor Browser and transport via usb stick to the SBC."
+  echo "    Modify the script to fit your needs."
+  echo "  Executing the script"
+  echo "    sudo bash build_sdcard.sh [false] [yourUser] [v'Latest'] [boolean] [true] [false]"
+  echo "  During execution:"
+  echo "    Test connectivity to Tor Project domain: no"
+  echo "    Add bridges: yes"
+  echo "    Which class of bridges: pluggable"
+  echo "    Which type of bridges: [meek_lite|obfs4]"
   echo ""
-  echo "3rd optional parameter: GITHUB-BRANCH [v1.7|anyBranch] --> default=v1.7"
-  echo "# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'v1.7' is default"
+  echo "Options:"
   echo ""
-  echo "4rd optional parameter: LCD-DRIVER [true|false] --> default=true"
-  echo "# could be 'false' or 'GPIO' (default)"
-  echo "# Use 'false' if you want to build an image that runs without a specialized LCD (like the GPIO)."
-  echo "# On 'false' the standard video output is used (HDMI) by default."
+  echo "[true|false]          1st: FATPACK [true|false] --> default=false"
+  echo "                      When 'true' it will pre-install needed frameworks for additional apps and features"
+  echo "                      as a convenience to safe on install and update time for additional apps."
+  echo "                      When 'false' it will just install the bare minimum and additional apps will just"
+  echo "                      install needed frameworks and libraries on demand when activated by user. Use 'false'"
+  echo "                      if you want to run your node without: go, dot-net, nodejs, docker, ..."
   echo ""
-  echo "5rd optional parameter: TWEAK-BOOTDRIVE [true|false] --> default=true"
-  echo "# could be 'true' (default) or 'false'"
-  echo "# If 'true' it will try (based on the base OS) to optimize the boot drive."
-  echo "# If 'false' this will skipped."
+  echo "[rootzoll|yourUser]   2nd: GITHUB-USERNAME [rootzoll|yourUser] --> default=rootzoll"
+  echo "                      could be any valid github-user that has a fork of the raspiblitz repo - 'rootzoll' is default"
+  echo "                      The 'raspiblitz' repo of this user is used to provisioning sd card"
+  echo "                      with raspiblitz assets/scripts later on."
+  echo "                      If this parameter is set also the branch needs to be given (see next parameter)."
+  echo "" 
+  echo "[v1.7|anyBranch]      3rd: GITHUB-BRANCH [v1.7|anyBranch] --> default=v1.7"
+  echo "                      could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'v1.7' is default"
   echo ""
-  echo "6rd optional parameter: WIFI [true|false] --> default=true"
-  echo "# could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)"
-  echo "# If 'false' WIFI will be deactivated by default"
-  echo "# If 'true' WIFI will be activated by with default country code 'US'"
-  echo "# If any valid wifi country code Wifi will be activated with that country code by default"
+  echo "[true|false]          4th: LCD-DRIVER [true|false] --> default=true"
+  echo "                      could be 'false' or 'GPIO' (default)"
+  echo "                      Use 'false' if you want to build an image that runs without a specialized LCD (like the GPIO)."
+  echo "                      On 'false' the standard video output is used (HDMI) by default."
+  echo ""
+  echo "[true|false]          5th: TWEAK-BOOTDRIVE [true|false] --> default=true"
+  echo "                      could be 'true' (default) or 'false'"
+  echo ""
+  echo "[true(US)|false]      6th optional parameter: WIFI [true|false] --> default=true"
+  echo "                      could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)"
+  echo "                      If 'false' WIFI will be deactivated by default"
+  echo "                      If 'true' WIFI will be activated by with default country code 'US'"
+  echo "                      If any valid wifi country code Wifi will be activated with that country code by default"
   exit 1
 fi
 
@@ -104,7 +131,7 @@ if [ ${#githubBranch} -eq 0 ]; then
 fi
 echo "3) will use GITHUB-BRANCH --> '${githubBranch}'"
 
-# 4rd optional parameter: LCD-DRIVER
+# 4th optional parameter: LCD-DRIVER
 # ----------------------------------------
 # could be 'false' or 'GPIO' (default)
 # Use 'false' if you want to build an image that runs without a specialized LCD (like the GPIO).
@@ -120,7 +147,7 @@ else
   echo "4) will use LCD-DRIVER --> '${lcdInstalled}'"
 fi
 
-# 5rd optional parameter: TWEAK-BOOTDRIVE
+# 5th optional parameter: TWEAK-BOOTDRIVE
 # ---------------------------------------
 # could be 'true' (default) or 'false'
 # If 'true' it will try (based on the base OS) to optimize the boot drive.
@@ -136,7 +163,7 @@ else
   echo "5) will use TWEAK-BOOTDRIVE --> '${tweakBootdrives}'"
 fi
 
-# 6rd optional parameter: WIFI
+# 6th optional parameter: WIFI
 # ---------------------------------------
 # could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)
 # If 'false' WIFI will be deactivated by default
@@ -221,6 +248,7 @@ else
   exit 1
 fi
 
+# Ease commenting and uncommenting deb-src.
 echo "*** Separate sources to different files ***"
 sudo cp /etc/apt/sources.list /etc/apt/sources.list.orig
 sudo rm -rf /etc/apt/sources.list
@@ -477,6 +505,8 @@ echo "" | sudo tee -a /etc/tor/torrc
 sudo cp /etc/tor/torrc /etc/tor/bridges
 }
 
+# Give option to redo bridges part in case user typed something wrong.
+# Else the script will exit if torrc configuration is wrong.
 bridgesQuestion
 if [ "${bridgeConfirm}" = "redo" ]; then
   bridgesQuestion
@@ -492,10 +522,10 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed
 sudo update-rc.d tor enable
 sudo systemctl start tor@default.service
+#sleep long enough to bootstrap when using bridges (usually have a delay)
 sleep 10
 sudo systemctl status tor@default.service --no-pager
 echo ""
-
 
 # check if Tor was already installed and is functional
 echo ""
@@ -511,10 +541,9 @@ else
   exit 1
 fi
 
-# torsocks wget either way to acquire the keys, as if Tor is running, this wont cause any issues, just some seconds more.
-# Yes, Tor needs to be running, but it will quit on the test above if not running. Only way to bypass censorship and get the keys if domain is blocked
 echo "*** Adding KEYS deb.torproject.org ***"
 # fix for v1.6 base image https://github.com/rootzoll/raspiblitz/issues/1906#issuecomment-755299759
+# fix for v1.7 tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054#issuecomment-800383278
 torsocks wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --import
 sudo gpg --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | sudo apt-key add -
 torKeyAvailable=$(sudo gpg --list-keys | grep -c "A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89")
@@ -1077,6 +1106,7 @@ if [ "${baseImage}" = "raspbian" ]||[ "${baseImage}" = "raspios_arm64"  ]||\
 fi
 
 # Not been done though Tor, potential anonimity risk. Through Tor requires captchas, no solution yet.
+# Keep and eye here https://github.com/ayeowch/bitnodes/issues/49
 # *** FALLBACK NODE LIST *** see https://github.com/rootzoll/raspiblitz/issues/1888
 echo "*** FALLBACK NODE LIST ***"
 sudo -u admin curl -H "Accept: application/json; indent=4" https://bitnodes.io/api/v1/snapshots/latest/ -o /home/admin/fallback.nodes
