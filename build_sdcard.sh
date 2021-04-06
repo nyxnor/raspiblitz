@@ -1563,8 +1563,8 @@ if [ "${lcdInstalled}" == "GPIO" ]; then
   fi
 fi
 
-
 # Calculate total seconds
+# If installing lcd, the script above will reboot before presenting the absolute runtime below
 echo "##### ABSOLUTE RUNTIME ####"
 duration=$(( SECONDS - start ))
 echo "The script took ${duration} seconds to complete"
