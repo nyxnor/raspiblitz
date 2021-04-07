@@ -318,7 +318,7 @@ echo ""
 # This will give you the option to use Tor Pluggable Transport Bridges to mask you are using Tor.
 # Tor domain blocked https://github.com/rootzoll/raspiblitz/issues/2054
 echo "*** INSTALL TOR BY DEFAULT ***"
-sudo apt install -y dirmngr tor tor-arm torsocks apt-transport-tor
+sudo apt install -y dirmngr apt-transport-tor tor torsocks nyx
 echo ""
 
 # INSTALL TOR BRIDGES PACKAGE
