@@ -93,9 +93,6 @@ echo "* RASPIBLITZ SD CARD IMAGE SETUP ${blitzVersion}   *"
 echo "*****************************************"
 echo "For details on optional parameters - see build script source code:"
 
-# set starting time
-start=$SECONDS
-
 # 1st optional parameter: FATPACK
 # -------------------------------
 # could be 'true' or 'false' (default)
@@ -250,6 +247,8 @@ if [ "$installRaspiblitzAnswer" == "yes" ] ; then
   echo "Building RaspiBlitz ..."
   sleep 3
   echo ""
+  # set starting time
+  start=$SECONDS
 else
   exit 1
 fi
