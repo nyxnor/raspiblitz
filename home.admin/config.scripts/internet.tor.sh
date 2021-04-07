@@ -210,9 +210,9 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   fi
 
   # install package just in case it was deinstalled
-  packageInstalled=$(dpkg -s tor-arm | grep -c 'Status: install ok')
+  packageInstalled=$(dpkg -s tor | grep -c 'Status: install ok')
   if [ ${packageInstalled} -eq 0 ]; then
-    sudo apt install tor tor-arm torsocks -y
+    sudo apt install tor torsocks nyx -y
   fi
 
   # create tor data directory if it not exist
