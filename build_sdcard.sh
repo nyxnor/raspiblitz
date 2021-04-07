@@ -535,9 +535,11 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed
 sudo update-rc.d tor enable
 sudo systemctl start tor@default.service
-#sleep long enough to bootstrap when using bridges (usually have a delay)
+## sleep long enough to bootstrap when using bridges (usually have a delay)
 sleep 10
-sudo systemctl status tor@default.service --no-pager
+## Bridges names and IP are displayed on status, and if this log is shared , need to find a way to hide that.
+#sudo systemctl status tor@default.service --no-pager
+sudo systemctl status tor@default | grep running && sudo systemctl status tor@default | grep %
 echo ""
 
 # check if Tor was already installed and is functional
