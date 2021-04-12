@@ -486,6 +486,124 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
   exit 0
 fi
 
+_temp=$(mktemp -p /dev/shm/)
+bridgeQuestion()
+{
+while [ "${bridgeClass}" != "normal" ] || [ "${bridgeClass}" != "pluggable" ]; do
+  l1="Enter the bridge type:\n"
+  l2="(normal/pluggable)"
+  dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2" 11 30 2>$_temp
+  bridgeClass=$( cat $_temp)
+  shred -u $_temp
+  if [ "${bridgeClass}" = "normal" ] || [ "${bridgeClass}" = "pluggable" ]; then
+    if [ "${bridgeClass}" = "pluggable" ]; then
+      while [ "${bridgeType}" != "obfs4" ] || [ "${bridgeType}" != "meek_lite" ]; do
+        l1="Enter the bridge class:\n"
+        l2="(obfs4/meek_lite)"
+        dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2" 11 30 2>$_temp
+        bridgeType=$( cat $_temp)
+        shred -u $_temp
+        if [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+          break
+        fi
+      done
+    fi
+    if [ "${bridgeClass}" = "normal" ] || [ "${bridgeClass}" = "pluggable" ]; then
+      l1="Enter the 1st bridge:\n"
+      l2="Leave it blank if you dont want any bridges"
+      dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2" 11 130 2>$_temp
+      bridge1=$( cat $_temp)
+      shred -u $_temp
+      l1="Enter the 2nd bridge:\n"
+      l2="Leave it blank if you dont want any bridges"
+      dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2" 11 130 2>$_temp
+      bridge2=$( cat $_temp)
+      shred -u $_temp
+      l1="Enter the 3rd bridge:\n"
+      l2="Leave it blank if you dont want any bridges"
+      dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2" 11 130 2>$_temp
+      bridge3=$( cat $_temp)
+      shred -u $_temp
+      while [ "${bridgeConfirm}" != "yes" ] || [ "${bridgeConfirm}" != "redo" ]; do
+        l1="Do you confirm the following lines?:\n"
+        l2="(yes/redo/cancel)\n"
+        l3="-----------------------------------\n"
+        l4="${bridgeClass}\n"
+        l5="${bridgeType}\n"
+        l6="\n"
+        l7="${bridge1}\n"
+        l8="\n"
+        l9="${bridge2}\n"
+        l10="\n"
+        l11="${bridge3}\n"
+        l12="-----------------------------------\n"
+        dialog --title "Tor Bridges - Setup (${network}/${chain})" --inputbox "$l1$l2$l3$l4$l5$l6$l7$l8$l9$l10$l11$l12" 55 80 2>$_temp
+        bridgeConfirm=$( cat $_temp)
+        shred -u $_temp
+        if [ "${bridgeConfirm}" = "yes" ] || [ "${bridgeConfirm}" = "redo" ] || [ "${bridgeConfirm}" = "cancel" ]; then
+          break
+        fi
+      done
+    fi
+    break
+  fi
+done
+}
+
+bridgeInsert()
+{
+if [ ! -z "${bridge1}" ] || [ ! -z "${bridge2}" ] || [ ! -z "${bridge3}" ]; then
+  sudo touch /etc/tor/torrc
+  sudo cp /etc/tor/torrc /etc/tor/tmp.torrc
+  sudo rm -rf /etc/tor/torrc
+  sudo rm -rf /etc/tor/bridges
+  sudo touch /etc/tor/bridges
+  echo "" | sudo tee -a /etc/tor/bridges
+  echo "UseBridges 1" | sudo tee -a /etc/tor/bridges
+  if [ ! -z "${bridge1}" ] || [ ! -z "${bridge2}" ] || [ ! -z "${bridge3}" ] && [ "${bridgeType}" = "obfs4" ] || [ "${bridgeType}" = "meek_lite" ]; then
+    echo "ClientTransportPlugin ${bridgeType} exec /usr/bin/obfs4proxy managed" | sudo tee -a /etc/tor/bridges
+  fi
+  if [ ! -z "${bridge1}" ]; then
+    echo "Bridge ${bridge1}" | sudo tee -a /etc/tor/bridges
+  fi
+  if [ ! -z "${bridge2}" ]; then
+    echo "Bridge ${bridge2}" | sudo tee -a /etc/tor/bridges
+  fi
+  if [ ! -z "${bridge3}" ]; then
+    echo "Bridge ${bridge3}" | sudo tee -a /etc/tor/bridges
+  fi
+  echo "" | sudo tee -a /etc/tor/bridges
+  sudo bash -c 'cat /etc/tor/tmp.torrc /etc/tor/bridges > /etc/tor/torrc'
+  sudo rm -rf /etc/tor/tmp.torrc
+else
+  dialog --title "Tor Bridges - Setup" --msgbox "User did not fill any bridges. \n\nReturning to menu ....." 7 52
+fi
+}
+
+# Give option to redo bridges part in case user typed something wrong.
+# bridge
+if [ "$1" = "bridge" ]; then
+  # Check if user want to erase the old bridge configuration. If the code contains empty lines will break.
+  bridgeAlreadyConfigured=$(cat /etc/tor/torrc | grep UseBridges)
+  if [ ${bridgeAlreadyConfigured} -gt 0 ]; then
+    whiptail --title "Tor Bridges - Setup" --yesno "Bridges configuration found in torrc. Do you wish to replace this with a new one (yes) or maintain the old once (no)\n\n----------------------------------------------------------------------------\n$(cat /etc/tor/torrc | grep UseBridges | cat /etc/tor/torrc | grep ClientTransportPlugin | cat /etc/tor/torrc | grep Bridge)" --scrolltext 25 80 3>&1 1>&2 2>&3
+  
+  ## DELETE IF NECESSARY
+  
+  bridgeQuestion
+  if [ "${bridgeConfirm}" = "redo" ]; then
+    bridgeQuestion
+  elif [ "${bridgeConfirm}" = "cancel" ]; then
+    dialog --backtitle "Tor Bridges - Setup" --msgbox "User chose to cancel adding bridges. \n\nReturning to menu ....." 7 52
+    sleep 3
+#    ./home/admin/00mainMenu.sh
+  elif [ "${bridgeConfirm}" = "yes" ]; then
+    bridgeInsert
+    sleep 3
+#    ./home/admin/00mainMenu.sh
+  fi
+fi
+
 # update
 if [ "$1" = "update" ]; then
   # as in https://2019.www.torproject.org/docs/debian#source
