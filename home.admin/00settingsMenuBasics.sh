@@ -15,6 +15,7 @@ if [ ${#networkUPnP} -eq 0 ]; then networkUPnP="off"; fi
 if [ ${#touchscreen} -eq 0 ]; then touchscreen=0; fi
 if [ ${#lcdrotate} -eq 0 ]; then lcdrotate=0; fi
 if [ ${#zerotier} -eq 0 ]; then zerotier="off"; fi
+if [ ${#circuitbreaker} -eq 0 ]; then circuitbreaker="off"; fi
 
 echo "map dropboxbackup to on/off"
 DropboxBackup="off"
@@ -70,13 +71,22 @@ fi
 # show select dialog
 echo "run dialog ..."
 
+
+# BASIC MENU INFO
+HEIGHT=19 # add 6 to CHOICE_HEIGHT + MENU lines
+WIDTH=45
+CHOICE_HEIGHT=11 # 1 line / OPTIONS
 OPTIONS=()
+
 OPTIONS+=(t 'Run behind TOR' ${runBehindTor})
-OPTIONS+=(s 'Touchscreen' ${touchscreenMenu})  
-OPTIONS+=(r 'LCD Rotate' ${lcdrotateMenu})  
+if [ "${displayClass}" == "lcd" ]; then
+  OPTIONS+=(s 'Touchscreen' ${touchscreenMenu}) 
+  OPTIONS+=(r 'LCD Rotate' ${lcdrotateMenu})  
+fi
 OPTIONS+=(a 'Channel Autopilot' ${autoPilot}) 
 OPTIONS+=(k 'Accept Keysend' ${keysend})  
 OPTIONS+=(n 'Testnet' ${chainValue})    
+OPTIONS+=(c 'Circuitbreaker (LND firewall)' ${circuitbreaker})  
 OPTIONS+=(u 'LND Auto-Unlock' ${autoUnlock})  
 OPTIONS+=(d 'StaticChannelBackup on DropBox' ${DropboxBackup})
 OPTIONS+=(e 'StaticChannelBackup on USB Drive' ${LocalBackup})
@@ -88,7 +98,11 @@ if [ ${#runBehindTor} -eq 0 ] || [ "${runBehindTor}" = "off" ]; then
   OPTIONS+=(l 'LND UPnP (AutoNAT)' ${autoNatDiscovery})
 fi 
 
-CHOICES=$(dialog --title ' Node Settings & Options ' --checklist ' use spacebar to activate/de-activate ' 19 45 11  "${OPTIONS[@]}" 2>&1 >/dev/tty)
+CHOICES=$(dialog \
+          --title ' Node Settings & Options ' \
+          --checklist ' use spacebar to activate/de-activate ' \
+          $HEIGHT $WIDTH $CHOICE_HEIGHT \
+          "${OPTIONS[@]}" 2>&1 >/dev/tty)
 
 dialogcancel=$?
 echo "done dialog"
@@ -307,6 +321,18 @@ else
   echo "LND Autounlock Setting unchanged."
 fi
 
+# lcd rotate
+choice="0"; check=$(echo "${CHOICES}" | grep -c "r")
+if [ ${check} -eq 1 ]; then choice="1"; fi
+if [ "${lcdrotate}" != "${choice}" ]; then
+  echo "LCD Rotate Setting changed .."
+  anychange=1
+  sudo /home/admin/config.scripts/blitz.display.sh rotate ${choice}
+  needsReboot=1
+else
+  echo "LCD Rotate Setting unchanged."
+fi
+
 # touchscreen
 choice="0"; check=$(echo "${CHOICES}" | grep -c "s")
 if [ ${check} -eq 1 ]; then choice="1"; fi
@@ -322,16 +348,15 @@ else
   echo "Touchscreen Setting unchanged."
 fi
 
-# lcd rotate
-choice="0"; check=$(echo "${CHOICES}" | grep -c "r")
-if [ ${check} -eq 1 ]; then choice="1"; fi
-if [ "${lcdrotate}" != "${choice}" ]; then
-  echo "LCD Rotate Setting changed .."
+# circuitbreaker
+choice="off"; check=$(echo "${CHOICES}" | grep -c "c")
+if [ ${check} -eq 1 ]; then choice="on"; fi
+if [ "${circuitbreaker}" != "${choice}" ]; then
+  echo "Circuitbreaker Setting changed .."
   anychange=1
-  sudo /home/admin/config.scripts/blitz.lcd.sh rotate ${choice}
-  needsReboot=1
+  sudo /home/admin/config.scripts/bonus.circuitbreaker.sh ${choice}
 else
-  echo "LCD Rotate Setting unchanged."
+  echo "Circuitbreaker Setting unchanged."
 fi
 
 # DropBox process choice

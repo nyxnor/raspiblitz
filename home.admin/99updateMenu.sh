@@ -269,6 +269,85 @@ Do you really want to update LND now?
   esac
 }
 
+bitcoinUpdate() {
+  # get bitcoin info
+  source <(sudo -u admin /home/admin/config.scripts/bitcoin.update.sh info)
+
+  # bitcoin update options
+  OPTIONS=()
+  if [ ${bitcoinUpdateInstalled} -eq 0 ]; then
+    OPTIONS+=(TESTED "Optional Bitcoin Core update to ${bitcoinVersion}")
+  fi
+  if [ $installedVersion != $bitcoinLatestVersion ]&&[ ${bitcoinVersion} != ${bitcoinLatestVersion} ];then
+    OPTIONS+=(RECKLESS "Untested Bitcoin Core update to ${bitcoinLatestVersion}")
+  fi
+  OPTIONS+=(CUSTOM "Update Bitcoin Core to a chosen version")
+  CHOICE=$(dialog --clear \
+                --backtitle "" \
+                --title "Bitcoin Core Update Options" \
+                --ok-label "Select" \
+                --cancel-label "Back" \
+                --menu "" \
+                9 60 3 \
+          "${OPTIONS[@]}" 2>&1 >/dev/tty)
+
+  case $CHOICE in
+    TESTED)
+      if [ ${bitcoinUpdateInstalled} -eq 1 ]; then
+        whiptail --title "ALREADY INSTALLED" \
+        --msgbox "The Bitcoin Core version ${bitcoinUpdateVersion} is already installed." 8 30
+        exit 1
+      fi
+      whiptail --title "OPTIONAL Bitcoin Core update" --yes-button "Cancel" --no-button "Update" \
+      --yesno "Info on updating to Bitcoin Core v${bitcoinVersion}:
+
+This Bitcoin Core version was tested on this system.
+Will verify the binary checksum and signature.
+
+Do you really want to update Bitcoin Core now?
+      " 12 58
+      if [ $? -eq 0 ]; then
+        echo "# cancel update"
+        exit 1
+      fi
+
+      error=""
+      warn=""
+      source <(sudo -u admin /home/admin/config.scripts/bitcoin.update.sh tested)
+      if [ ${#error} -gt 0 ]; then
+        whiptail --title "ERROR" --msgbox "${error}" 8 30
+      else
+        sleep 8
+      fi
+      ;;
+    RECKLESS)
+      whiptail --title "UNTESTED Bitcoin Core update to ${bitcoinLatestVersion}" --yes-button "Cancel" \
+      --no-button "Update" --yesno "Using the 'RECKLESS' Bitcoin Core update will grab
+the latest stable Bitcoin Core release published on the Bitcoin Core GitHub page.
+
+This Bitcoin Core version was NOT tested on this system.
+Will verify the binary checksum and signature.
+
+Do you really want to update Bitcoin Core now?
+      " 16 58
+      if [ $? -eq 0 ]; then
+        echo "# cancel update"
+        exit 1
+      fi
+      error=""
+      source <(sudo -u admin /home/admin/config.scripts/bitcoin.update.sh reckless)
+      if [ ${#error} -gt 0 ]; then
+        whiptail --title "ERROR" --msgbox "${error}" 8 30
+      else
+        sleep 8
+      fi
+      ;;
+    CUSTOM)
+      sudo -u admin /home/admin/config.scripts/bitcoin.update.sh custom
+      ;;
+  esac
+}
+
 # quick call by parameter
 if [ "$1" == "github" ]; then
   patch
@@ -276,43 +355,64 @@ if [ "$1" == "github" ]; then
 fi
 
 # Basic Options Menu
+HEIGHT=10 # add 6 to CHOICE_HEIGHT + MENU lines
+WIDTH=55
+CHOICE_HEIGHT=4 # 1 line / OPTIONS
 OPTIONS=(
-RELEASE "RaspiBlitz Release Update/Recovery" \
-LND "Interim LND Update Options" \
+RELEASE "RaspiBlitz Release Update/Recovery"
 PATCH "Patch RaspiBlitz v${codeVersion}"
+LND "Interim LND Update Options"
+BITCOIN "Bitcoin Core Update Options"
 )
 
 if [ "${bos}" == "on" ]; then
   OPTIONS+=(BOS "Update Balance of Satoshis")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
 fi
 if [ "${thunderhub}" == "on" ]; then
   OPTIONS+=(THUB "Update ThunderHub")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
 fi
 if [ "${specter}" == "on" ]; then
   OPTIONS+=(SPECTER "Update Cryptoadvance Specter")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
 fi
 if [ "${rtlWebinterface}" == "on" ]; then
   OPTIONS+=(RTL "Update RTL")
-fi
-if [ "${pyblock}" == "on" ]; then
-  OPTIONS+=(PYBLOCK "Update PyBLOCK")
-fi
-if [ "${pool}" == "on" ]; then
-  OPTIONS+=(POOL "Update Lightning Pool")
-fi
-if [ "${loop}" == "on" ]; then
-  OPTIONS+=(LOOP "Update Lightning Loop")
-fi
-if [ "${runBehindTor}" == "on" ]; then
-  OPTIONS+=(TOR "Update Tor from the source code")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
 fi
 if [ "${sphinxrelay}" == "on" ]; then
   OPTIONS+=(SPHINX "Update Sphinx Server Relay")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
+fi
+if [ "${pyblock}" == "on" ]; then
+  OPTIONS+=(PYBLOCK "Update PyBLOCK")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
+fi
+if [ "${mempoolExplorer}" == "on" ]; then
+  OPTIONS+=(MEMPOOL "Update Mempool Explorer")
+fi
+if [ "${runBehindTor}" == "on" ]; then
+  OPTIONS+=(TOR "Update Tor from the source code")
+  HEIGHT=$((HEIGHT+1))
+  CHOICE_HEIGHT=$((CHOICE_HEIGHT+1))  
 fi
 
-CHOICE=$(whiptail --clear --title "Update Options" --menu "" 13 55 6 "${OPTIONS[@]}" 2>&1 >/dev/tty)
+CHOICE=$(dialog --clear \
+                --backtitle "" \
+                --title "Update Options" \
+                --ok-label "Select" \
+                --cancel-label "Main menu" \
+                --menu "" \
+          $HEIGHT $WIDTH $CHOICE_HEIGHT \
+          "${OPTIONS[@]}" 2>&1 >/dev/tty)
 
-clear
 case $CHOICE in
   RELEASE)
     release
@@ -323,6 +423,9 @@ case $CHOICE in
     ;;
   LND)
     lnd
+    ;;
+  BITCOIN)
+    bitcoinUpdate
     ;;
   BOS)
     /home/admin/config.scripts/bonus.bos.sh update
@@ -342,13 +445,10 @@ case $CHOICE in
   PYBLOCK)
     /home/admin/config.scripts/bonus.pyblock.sh update
     ;;
-  POOL)
-    /home/admin/config.scripts/bonus.pool.sh update  
-    ;;
-  LOOP)
-    /home/admin/config.scripts/bonus.loop.sh update  
-    ;;
   TOR)
     sudo /home/admin/config.scripts/internet.tor.sh update  
+    ;;
+  MEMPOOL)
+    /home/admin/config.scripts/bonus.mempool.sh update 
     ;;
 esac

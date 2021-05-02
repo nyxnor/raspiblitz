@@ -71,6 +71,10 @@ echo "sudo tail -n 30 /mnt/hdd/lnd/logs/${network}/${chain}net/lnd.log"
 sudo tail -n 30 /mnt/hdd/lnd/logs/${network}/${chain}net/lnd.log
 echo ""
 
+echo "*** NGINX SYSTEMD STATUS ***"
+sudo systemctl status nginx -n2 --no-pager
+echo ""
+
 echo "*** LAST NGINX LOGS ***"
 echo "sudo journalctl -u nginx -b --no-pager -n20"
 sudo journalctl -u nginx -b --no-pager -n20
@@ -78,37 +82,39 @@ echo "--> CHECK CONFIG: sudo nginx -t"
 sudo nginx -t
 echo ""
 
-if [ "${touchscreen}" = "1" ]; then
+if [ "${touchscreen}" = "0" ]; then
+  echo "- TOUCHSCREEN is OFF by config"
+else
   echo ""
   echo "*** LAST 20 TOUCHSCREEN LOGS ***"
   echo "sudo tail -n 20 /home/pi/.cache/lxsession/LXDE-pi/run.log"
   sudo tail -n 20 /home/pi/.cache/lxsession/LXDE-pi/run.log
   echo ""
-else
-  echo "- TOUCHSCREEN is OFF by config"
 fi
 
-if [ "${loop}" = "on" ]; then
+if [ "${loop}" = "off" ]; then
+  echo "- Loop is OFF by config"
+else
   echo ""
   echo "*** LAST 20 LOOP LOGS ***"
   echo "sudo journalctl -u loopd -b --no-pager -n20"
   sudo journalctl -u loopd -b --no-pager -n20
   echo ""
-else
-  echo "- Loop is OFF by config"
 fi
 
-if [ "${rtlWebinterface}" = "on" ]; then
+if [ "${rtlWebinterface}" = "off" ]; then
+  echo "- RTL is OFF by config"
+else
   echo ""
   echo "*** LAST 20 RTL LOGS ***"
   echo "sudo journalctl -u RTL -b --no-pager -n20"
   sudo journalctl -u RTL -b --no-pager -n20
   echo ""
-else
-  echo "- RTL is OFF by config"
 fi
 
-if [ "${ElectRS}" = "on" ]; then
+if [ "${ElectRS}" = "off" ]; then
+  echo "- Electrum Rust Server is OFF by config"
+else
   echo ""
   echo "*** LAST 20 ElectRS LOGS ***"
   echo "sudo journalctl -u electrs -b --no-pager -n20"
@@ -117,68 +123,80 @@ if [ "${ElectRS}" = "on" ]; then
   echo "*** ElectRS Status ***"
   sudo /home/admin/config.scripts/bonus.electrs.sh status
   echo ""
-else
-  echo "- Electrum Rust Server is OFF by config"
 fi
 
-if [ "${BTCPayServer}" = "on" ]; then
+if [ "${lit}" = "off" ]; then
+  echo "- LIT is OFF by config"
+else
+  echo ""
+  echo "*** LAST 20 LIT LOGS ***"
+  echo "sudo journalctl -u litd -b --no-pager -n20"
+  sudo journalctl -u litd -b --no-pager -n20
+  echo ""
+fi
+
+if [ "${BTCPayServer}" = "off" ]; then
+  echo "- BTCPayServer is OFF by config"
+else
   echo ""
   echo "*** LAST 20 BTCPayServer LOGS ***"
   echo "sudo journalctl -u btcpayserver -b --no-pager -n20"
   sudo journalctl -u btcpayserver -b --no-pager -n20
   echo ""
-else
-  echo "- BTCPayServer is OFF by config"
 fi
 
-if [ "${LNBits}" = "on" ]; then
+if [ "${LNBits}" = "off" ]; then
+  echo "- LNbits is OFF by config"
+else
   echo ""
   echo "*** LAST 20 LNbits LOGS ***"
   echo "sudo journalctl -u lnbits -b --no-pager -n20"
   sudo journalctl -u lnbits -b --no-pager -n20
   echo ""
-else
-  echo "- LNbits is OFF by config"
 fi
 
-if [ "${thunderhub}" = "on" ]; then
+if [ "${thunderhub}" = "off" ]; then
+  echo "- Thunderhub is OFF by config"
+else
   echo ""
   echo "*** LAST 20 Thunderhub LOGS ***"
   echo "sudo journalctl -u thunderhub -b --no-pager -n20"
   sudo journalctl -u thunderhub -b --no-pager -n20
   echo ""
-else
-  echo "- Thunderhub is OFF by config"
 fi
 
-if [ "${specter}" = "on" ]; then
+if [ "${specter}" = "off" ]; then
+  echo "- SPECTER is OFF by config"
+else
   echo ""
   echo "*** LAST 20 SPECTER LOGS ***"
   echo "sudo journalctl -u cryptoadvance-specter -b --no-pager -n20"
   sudo journalctl -u cryptoadvance-specter -b --no-pager -n20
   echo ""
-else
-  echo "- SPECTER is OFF by config"
 fi
 
-if [ "${sphinxrelay}" = "on" ]; then
+if [ "${sphinxrelay}" = "off" ]; then
+  echo "- SPHINX is OFF by config"
+else
   echo ""
   echo "*** LAST 20 SPHINX LOGS ***"
   echo "sudo journalctl -u sphinxrelay -b --no-pager -n20"
   sudo journalctl -u sphinxrelay -b --no-pager -n20
   echo ""
-else
-  echo "- SPHINX is OFF by config"
 fi
 
 echo ""
 echo "*** MOUNTED DRIVES ***"
-df -T
+df -T -h
 echo ""
 
 echo ""
-echo "*** WIFI Info ***"
-sudo /home/admin/config.scripts/internet.wifi.sh status
+echo "*** DATADRIVE ***"
+sudo /home/admin/config.scripts/blitz.datadrive.sh status
+echo ""
+
+echo "*** NETWORK ***"
+sudo /home/admin/config.scripts/internet.sh status | grep 'network_device\|localip\|dhcp'
 echo ""
 
 echo "*** HARDWARE TEST RESULTS ***"
@@ -188,20 +206,6 @@ if [ ${#undervoltageReports} -gt 0 ]; then
   if [ ${undervoltageReports} -gt 0 ]; then
     showImproveInfo=1
   fi
-fi
-if [ -f /home/admin/stresstest.report ]; then
-  sudo cat /home/admin/stresstest.report
-  source /home/admin/stresstest.report
-  if [ ${powerWARN} -gt 0 ]; then
-      showImproveInfo=1
-  fi
-  if [ ${tempWARN} -gt 0 ]; then
-      showImproveInfo=1
-  fi
-fi
-if [ ${showImproveInfo} -gt 0 ]; then
-  echo "IMPORTANT: There are some hardware issues with your setup."
-  echo "'Run Hardwaretest' in main menu or: sudo /home/admin/05hardwareTest.sh"
 fi
 echo ""
 

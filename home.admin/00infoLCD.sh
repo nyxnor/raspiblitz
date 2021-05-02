@@ -78,17 +78,6 @@ chain=""
 while :
     do
 
-    # save some CPU / log clutter on a "headless" installation (no LCD attached)
-    # by running the LCD stuff each 5 minutes that otherwise will be run every 5 seconds
-    # 
-    # just insert a line "headless=on" into your "/mnt/hdd/raspiblitz.conf" file
-    # 
-    isHeadless=$(cat "${configFile}" 2>/dev/null | grep -Ec "headless=1|headless=on")
-    if [ ${isHeadless} -gt 0 ]; then
-      echo "*** headless=on sleeping 60 seconds ***" | systemd-cat
-      sleep 60
-    fi
-
     ###########################
     # CHECK BASIC DATA
     ###########################   
@@ -182,10 +171,6 @@ while :
       elif [ "${state}" = "sdtoosmall" ]; then
           message="SDCARD TOO SMALL - min 16GB"
 
-      # when old data - improve message
-      elif [ "${state}" = "olddata" ]; then
-          message="login for manual migration"
-
       # when no HDD - improve message
       elif [ "${state}" = "noHDD" ]; then
           message="Connect external HDD/SSD"
@@ -222,7 +207,7 @@ while :
     fi
     
     # if freshly recovered 
-    recoveredInfoExists=$(sudo ls /home/admin/raspiblitz.recover.info 2>/dev/null | grep -c '.info')
+    recoveredInfoExists=$(sudo ls /home/admin/recover.flag 2>/dev/null | grep -c '.flag')
     if [ ${recoveredInfoExists} -gt 0 ]; then
       l1="FINAL RECOVER LOGIN NEEDED:\n"
       l2="ssh admin@${localip}\n"

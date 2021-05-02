@@ -69,64 +69,34 @@ network=""
 chain=""
 setupStep=0
 fsexpanded=0
-lcd2hdmi="off"
+# see https://github.com/rootzoll/raspiblitz/issues/1265#issuecomment-813369284
+displayClass="lcd"
+displayType=""
+fundRecovery=0
 
 # try to load old values if available (overwrites defaults)
 source ${infoFile} 2>/dev/null
+
+# try to load config values if available (config overwrites info)
+source ${configFile} 2>/dev/null
 
 # resetting info file
 echo "Resetting the InfoFile: ${infoFile}"
 echo "state=starting" > $infoFile
 echo "message=" >> $infoFile
+echo "baseimage=${baseimage}" >> $infoFile
+echo "cpu=${cpu}" >> $infoFile
 echo "network=${network}" >> $infoFile
 echo "chain=${chain}" >> $infoFile
 echo "fsexpanded=${fsexpanded}" >> $infoFile
-echo "lcd2hdmi=${lcd2hdmi}" >> $infoFile
+echo "displayClass=${displayClass}" >> $infoFile
+echo "displayType=${displayType}" >> $infoFile
 echo "setupStep=${setupStep}" >> $infoFile
+echo "fundRecovery=${fundRecovery}" >> $infoFile
 if [ "${setupStep}" != "100" ]; then
   echo "hostname=${hostname}" >> $infoFile
 fi
 sudo chmod 777 ${infoFile}
-
-################################
-# IDENTIFY CPU ARCHITECTURE
-################################
-
-cpu="?"
-isARM=$(uname -m | grep -c 'arm')
-isAARCH64=$(uname -m | grep -c 'aarch64')
-isX86_64=$(uname -m | grep -c 'x86_64')
-if [ ${isARM} -gt 0 ]; then
-  cpu="arm"
-elif [ ${isAARCH64} -gt 0 ]; then
-  cpu="aarch64"
-elif [ ${isX86_64} -gt 0 ]; then
-  cpu="x86_64"
-fi
-echo "cpu=${cpu}" >> $infoFile
-
-################################
-# IDENTIFY BASEIMAGE
-################################
-
-baseImage="?"
-isDietPi=$(uname -n | grep -c 'DietPi')
-isRaspbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Raspbian')
-isArmbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Debian')
-isUbuntu=$(cat /etc/os-release 2>/dev/null | grep -c 'Ubuntu')
-if [ ${isRaspbian} -gt 0 ]; then
-  baseImage="raspbian"
-fi
-if [ ${isArmbian} -gt 0 ]; then
-  baseImage="armbian"
-fi 
-if [ ${isUbuntu} -gt 0 ]; then
-baseImage="ubuntu"
-fi
-if [ ${isDietPi} -gt 0 ]; then
-  baseImage="dietpi"
-fi
-echo "baseimage=${baseImage}" >> $infoFile
 
 # resetting start count files
 echo "SYSTEMD RESTART LOG: blockchain (bitcoind/litecoind)" > /home/admin/systemd.blockchain.log
@@ -177,10 +147,11 @@ fi
 # display 3 secs logo - try to kickstart LCD
 # see https://github.com/rootzoll/raspiblitz/issues/195#issuecomment-469918692
 # see https://github.com/rootzoll/raspiblitz/issues/647
+# see https://github.com/rootzoll/raspiblitz/pull/1580
 randnum=$(shuf -i 0-7 -n 1)
-sudo fbi -a -T 1 -d /dev/fb1 --noverbose /home/admin/raspiblitz/pictures/startlogo${randnum}.png
+/home/admin/config.scripts/blitz.display.sh image /home/admin/raspiblitz/pictures/startlogo${randnum}.png
 sleep 5
-sudo killall -3 fbi
+/home/admin/config.scripts/blitz.display.sh hide
 
 ################################
 # GENERATE UNIQUE SSH PUB KEYS
@@ -212,16 +183,17 @@ if [ ${afterSetupScriptExists} -eq 1 ]; then
   # echo out script to journal logs
   sudo cat /home/admin/setup.sh
   # execute the after boot script
-  echo "Logs in stored to: /home/admin/raspiblitz.recover.log"
-  echo "\n***** RUNNING AFTER BOOT SCRIPT ******** " >> /home/admin/raspiblitz.recover.log
-  sudo /home/admin/setup.sh >> /home/admin/raspiblitz.recover.log
+  echo "Logs in stored to: /home/admin/raspiblitz.log.recover"
+  echo "\n***** RUNNING AFTER BOOT SCRIPT ******** " >> ${logFile}
+  sudo /home/admin/setup.sh >> ${logFile}
   # delete the after boot script
   sudo rm /home/admin/setup.sh 
   # reboot again
-  echo "DONE wait 6 secs ... one more reboot needed ... "
-
+  echo "DONE wait 10 secs ... one more reboot needed ... " >> ${logFile}
+  sudo cp ${logFile} ${logFile}.afterboot
   sudo shutdown -r now
   sleep 100
+  exit 0
 fi
 
 ################################
@@ -236,16 +208,14 @@ if [ ${forceHDMIoutput} -eq 1 ]; then
   # delete that file (to prevent loop)
   sudo rm /boot/hdmi*
   # switch to HDMI what will trigger reboot
-  sudo /home/admin/config.scripts/blitz.lcd.sh hdmi on
+  echo "Yes HDMI switch found ... activating HDMI display output & reboot" >> $logFile
+  sudo /home/admin/config.scripts/blitz.display.sh set-display hdmi >> $logFile
+  sudo cp ${logFile} ${logFile}.hdmiswitch
+  sudo shutdown -r now
+  sleep 100
   exit 0
-fi
-
-################################
-# UPDATE LCD DRIVERS IF NEEEDED
-################################
-
-if [ "${lcd2hdmi}" != "on" ]; then
-  sudo /home/admin/config.scripts/blitz.lcd.sh check-repair >> $logFile
+else
+  echo "No HDMI switch found. " >> $logFile
 fi
 
 ################################
@@ -258,15 +228,18 @@ fi
 sshReset=$(sudo ls /boot/ssh.reset* 2>/dev/null | grep -c reset)
 if [ ${sshReset} -eq 1 ]; then
   # delete that file (to prevent loop)
-  sudo rm /boot/ssh.reset*
+  sudo rm /boot/ssh.reset* >> $logFile
   # show info ssh reset
   sed -i "s/^state=.*/state=sshreset/g" ${infoFile}
   sed -i "s/^message=.*/message='resetting SSH & reboot'/g" ${infoFile}
   # delete ssh certs
-  sudo systemctl stop sshd
-  sudo rm /mnt/hdd/ssh/ssh_host*
-  sudo ssh-keygen -A
-  sudo /home/admin/XXshutdown.sh reboot
+  sudo systemctl stop sshd >> $logFile
+  sudo rm /mnt/hdd/ssh/ssh_host* >> $logFile
+  sudo ssh-keygen -A >> $logFile
+  echo "SSH SERVER CERTS RESET ... (reboot) " >> $logFile
+  sudo cp ${logFile} ${logFile}.sshcerts
+  sudo shutdown -r now
+  sleep 100
   exit 0
 fi
 
@@ -298,6 +271,32 @@ sed -i "s/^message=.*/message='please wait'/g" ${infoFile}
 # get fresh info about data drive to continue
 source <(sudo /home/admin/config.scripts/blitz.datadrive.sh status)
 echo "isMounted: $isMounted" >> $logFile
+
+# check if UASP is already deactivated (on RaspiOS)
+# https://www.pragmaticlinux.com/2021/03/fix-for-getting-your-ssd-working-via-usb-3-on-your-raspberry-pi/
+cmdlineExists=$(sudo ls /boot/cmdline.txt 2>/dev/null | grep -c "cmdline.txt")
+if [ ${cmdlineExists} -eq 1 ] && [ ${#hddAdapterUSB} -gt 0 ] && [ ${hddAdapterUSAP} -eq 0 ]; then
+  echo "Checking for UASP deactivation ..." >> $logFile
+  usbQuirkActive=$(sudo cat /boot/cmdline.txt | grep -c "usb-storage.quirks=")
+  # check if its maybe other device
+  usbQuirkDone=$(sudo cat /boot/cmdline.txt | grep -c "usb-storage.quirks=${hddAdapterUSB}:u")
+  if [ ${usbQuirkActive} -gt 0 ] && [ ${usbQuirkDone} -eq 0 ]; then
+    # remove old usb-storage.quirks
+    sudo sed -i "s/usb-storage.quirks=[^ ]* //g" /boot/cmdline.txt
+  fi 
+  if [ ${usbQuirkDone} -eq 0 ]; then
+    # add new usb-storage.quirks
+    sudo sed -i "1s/^/usb-storage.quirks=${hddAdapterUSB}:u /" /boot/cmdline.txt
+    sudo cat /boot/cmdline.txt >> $logFile
+    # go into reboot to activate new setting
+    echo "DONE deactivating UASP for ${hddAdapterUSB} ... one more reboot needed ... " >> $logFile
+    sudo cp ${logFile} ${logFile}.uasp
+    sudo shutdown -r now
+    sleep 100
+  fi
+else 
+  echo "Skipping UASP deactivation ... cmdlineExists(${cmdlineExists}) hddAdapterUSB(${hddAdapterUSB}) hddAdapterUSAP(${hddAdapterUSAP})" >> $logFile
+fi
 
 # check if the HDD is auto-mounted ( auto-mounted = setup-done)
 if [ ${isMounted} -eq 0 ]; then
@@ -389,10 +388,12 @@ if [ ${isMounted} -eq 0 ]; then
     sed -i "s/^message=.*/message='Done Recover'/g" ${infoFile}
     echo "rebooting" >> $logFile
     # set flag that system is freshly recovered and needs setup dialogs
-    echo "state=recovered" >> /home/admin/raspiblitz.recover.info
+    sudo touch /home/admin/recover.flag
+    echo "state=recovered" >> /home/admin/recover.flag
     echo "shutdown in 1min" >> $logFile
     # save log file for inspection before reboot
-    cp $logFile /home/admin/raspiblitz.recover.log
+    echo "REBOOT FOR SSH CERTS RESET ..." >> $logFile
+    sudo cp ${logFile} ${logFile}.recover
     sync
     sudo shutdown -r -F -t 60
     exit 0
@@ -481,20 +482,24 @@ if [ ${configExists} -eq 1 ]; then
 
 fi
 
+######################################################################
+# MAKE SURE LND RPC/REST ports are standard & open to all connections 
+######################################################################
+sudo sed -i "s/^rpclisten=.*/rpclisten=0.0.0.0:10009/g" /mnt/hdd/lnd/lnd.conf
+sudo sed -i "s/^restlisten=.*/restlisten=0.0.0.0:8080/g" /mnt/hdd/lnd/lnd.conf
+
 #################################
 # FIX BLOCKCHAINDATA OWNER (just in case)
 # https://github.com/rootzoll/raspiblitz/issues/239#issuecomment-450887567
 #################################
 sudo chown bitcoin:bitcoin -R /mnt/hdd/bitcoin 2>/dev/null
 
-
 #################################
 # FIX BLOCKING FILES (just in case)
 # https://github.com/rootzoll/raspiblitz/issues/1901#issue-774279088
 # https://github.com/rootzoll/raspiblitz/issues/1836#issue-755342375
-sudo rm -f /home/bitcoin/.bitcoin/bitcoind.pid 2>/dev/null
+sudo rm -f /mnt/hdd/bitcoin/bitcoind.pid 2>/dev/null
 sudo rm -f /mnt/hdd/bitcoin/.lock 2>/dev/null
-
 
 #################################
 # MAKE SURE USERS HAVE LATEST LND CREDENTIALS
@@ -527,7 +532,7 @@ fi
 # DETECT FRESHLY RECOVERED SD
 ################################
 
-recoveredInfoExists=$(ls /home/admin/raspiblitz.recover.info | grep -c '.info')
+recoveredInfoExists=$(ls /home/admin/recover.flag | grep -c '.flag')
 if [ ${recoveredInfoExists} -eq 1 ]; then
   sed -i "s/^state=.*/state=recovered/g" ${infoFile}
   sed -i "s/^message=.*/message='login to finish'/g" ${infoFile}
@@ -597,22 +602,6 @@ else
   echo "CREATE: subscription data directory"
   sudo mkdir /mnt/hdd/app-data/subscriptions
   sudo chown admin:admin /mnt/hdd/app-data/subscriptions
-fi
-
-################################
-# STRESSTEST RASPBERRY PI
-################################
-
-if [ "${baseImage}" = "raspbian" ] ; then
-  # generate stresstest report on every startup (in case hardware has changed)
-  sed -i "s/^state=.*/state=stresstest/g" ${infoFile}
-  sed -i "s/^message=.*/message='Testing Hardware 60s'/g" ${infoFile}
-  sudo /home/admin/config.scripts/blitz.stresstest.sh /home/admin/stresstest.report
-  source /home/admin/stresstest.report
-  if [ "${powerWARN}" = "0" ]; then
-    # https://github.com/rootzoll/raspiblitz/issues/576
-    echo "" > /var/log/syslog
-  fi
 fi
 
 # mark that node is ready now

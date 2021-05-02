@@ -2,7 +2,7 @@
 
 # https://github.com/mempool/mempool
 
-pinnedVersion="v2.0.1"
+pinnedVersion="v2.1.2"
 
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
@@ -39,21 +39,21 @@ This can take multiple hours.
   if [ "${runBehindTor}" = "on" ] && [ ${#toraddress} -gt 0 ]; then
 
     # TOR
-    /home/admin/config.scripts/blitz.lcd.sh qr "${toraddress}"
-    whiptail --title " Mempool " --msgbox "Open in your local web browser & accept self-signed cert:
-https://${localip}:4081\n
-SHA1 Thumb/Fingerprint:
+    /home/admin/config.scripts/blitz.display.sh qr "${toraddress}"
+    whiptail --title " Mempool " --msgbox "Open in your local web browser:
+http://${localip}:4080\n
+https://${localip}:4081 with Fingerprint:
 ${fingerprint}\n
 Hidden Service address for TOR Browser (QR see LCD):
 ${toraddress}
 " 16 67
-    /home/admin/config.scripts/blitz.lcd.sh hide
+    /home/admin/config.scripts/blitz.display.sh hide
   else
 
     # IP + Domain
-    whiptail --title " Mempool " --msgbox "Open in your local web browser & accept self-signed cert:
-https://${localip}:4081\n
-SHA1 Thumb/Fingerprint:
+    whiptail --title " Mempool " --msgbox "Open in your local web browser:
+http://${localip}:4080\n
+https://${localip}:4081 with Fingerprint:
 ${fingerprint}\n
 Activate TOR to access the web block explorer from outside your local network.
 " 16 54
@@ -125,7 +125,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     #echo "# try to suppress question on statistics report .."
     #sudo sed -i "s/^}/,\"cli\": {\"analytics\": false}}/g" /home/mempool/mempool/frontend/angular.json
 
-    sudo mariadb -e "DROP DATABASE mempool;"
+    sudo mariadb -e "DROP DATABASE IF EXISTS mempool;"
     sudo mariadb -e "CREATE DATABASE mempool;"
     sudo mariadb -e "GRANT ALL PRIVILEGES ON mempool.* TO 'mempool' IDENTIFIED BY 'mempool';"
     sudo mariadb -e "FLUSH PRIVILEGES;"
@@ -166,7 +166,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     PASSWORD_B=$(sudo cat /mnt/hdd/${network}/${network}.conf | grep rpcpassword | cut -c 13-)
 
     touch /home/admin/mempool-config.json
-    sudo chmod 600 /home/admin/mempool-config.json || exit 1 
+    sudo chmod 600 /home/admin/mempool-config.json || exit 1
     cat > /home/admin/mempool-config.json <<EOF
 {
   "MEMPOOL": {
@@ -174,6 +174,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
     "BACKEND": "electrum",
     "HTTP_PORT": 8999,
     "API_URL_PREFIX": "/api/v1/",
+    "CACHE_DIR": "/mnt/hdd/app-storage/mempool/cache",
     "POLL_RATE_MS": 2000
   },
   "CORE_RPC": {
@@ -183,8 +184,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
   "ELECTRUM": {
     "HOST": "127.0.0.1",
     "PORT": 50002,
-    "TLS_ENABLED": true,
-    "TX_LOOKUPS": false
+    "TLS_ENABLED": true
   },
   "DATABASE": {
     "ENABLED": true,
@@ -204,26 +204,32 @@ EOF
     sudo chown mempool:mempool /home/mempool/mempool/backend/mempool-config.json
     cd /home/mempool/mempool/frontend
 
+    sudo mkdir -p /mnt/hdd/app-storage/mempool/cache
+    sudo chown mempool:mempool /mnt/hdd/app-storage/mempool/cache
+
     sudo mkdir -p /var/www/mempool
     sudo rsync -av --delete dist/mempool/ /var/www/mempool/
     sudo chown -R www-data:www-data /var/www/mempool
 
     # open firewall
     echo "# *** Updating Firewall ***"
+    sudo ufw allow 4080 comment 'mempool HTTP'
     sudo ufw allow 4081 comment 'mempool HTTPS'
     echo ""
 
-    
+
     ##################
     # NGINX
     ##################
     # setup nginx symlinks
     sudo cp /home/admin/assets/nginx/snippets/mempool.conf /etc/nginx/snippets/mempool.conf
     sudo cp /home/admin/assets/nginx/snippets/mempool-http.conf /etc/nginx/snippets/mempool-http.conf
+    sudo cp /home/admin/assets/nginx/sites-available/mempool_.conf /etc/nginx/sites-available/mempool_.conf
     sudo cp /home/admin/assets/nginx/sites-available/mempool_ssl.conf /etc/nginx/sites-available/mempool_ssl.conf
     sudo cp /home/admin/assets/nginx/sites-available/mempool_tor.conf /etc/nginx/sites-available/mempool_tor.conf
     sudo cp /home/admin/assets/nginx/sites-available/mempool_tor_ssl.conf /etc/nginx/sites-available/mempool_tor_ssl.conf
 
+    sudo ln -sf /etc/nginx/sites-available/mempool_.conf /etc/nginx/sites-enabled/
     sudo ln -sf /etc/nginx/sites-available/mempool_ssl.conf /etc/nginx/sites-enabled/
     sudo ln -sf /etc/nginx/sites-available/mempool_tor.conf /etc/nginx/sites-enabled/
     sudo ln -sf /etc/nginx/sites-available/mempool_tor_ssl.conf /etc/nginx/sites-enabled/
@@ -242,7 +248,7 @@ After=${network}d.service
 
 [Service]
 WorkingDirectory=/home/mempool/mempool/backend
-# ExecStartPre=/usr/bin/npm run build 
+# ExecStartPre=/usr/bin/npm run build
 ExecStart=/usr/bin/node --max-old-space-size=2048 dist/index.js
 User=mempool
 # Restart on failure but no more than default times (DefaultStartLimitBurst=5) every 10 minutes (600 seconds). Otherwise stop
@@ -253,11 +259,11 @@ RestartSec=600
 WantedBy=multi-user.target
 EOF
 
-    sudo mv /home/admin/mempool.service /etc/systemd/system/mempool.service 
+    sudo mv /home/admin/mempool.service /etc/systemd/system/mempool.service
     sudo systemctl enable mempool
     echo "# OK - the mempool service is now enabled"
 
-  else 
+  else
     echo "# mempool already installed."
   fi
 
@@ -272,7 +278,7 @@ EOF
 
   # setting value in raspi blitz config
   sudo sed -i "s/^mempoolExplorer=.*/mempoolExplorer=on/g" /mnt/hdd/raspiblitz.conf
-  
+
   echo "# needs to finish creating txindex to be functional"
   echo "# monitor with: sudo tail -n 20 -f /mnt/hdd/bitcoin/debug.log"
 
@@ -303,9 +309,11 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
     # remove nginx symlinks
     sudo rm -f /etc/nginx/snippets/mempool.conf
     sudo rm -f /etc/nginx/snippets/mempool-http.conf
+    sudo rm -f /etc/nginx/sites-enabled/mempool_.conf
     sudo rm -f /etc/nginx/sites-enabled/mempool_ssl.conf
     sudo rm -f /etc/nginx/sites-enabled/mempool_tor.conf
     sudo rm -f /etc/nginx/sites-enabled/mempool_tor_ssl.conf
+    sudo rm -f /etc/nginx/sites-available/mempool_.conf
     sudo rm -f /etc/nginx/sites-available/mempool_ssl.conf
     sudo rm -f /etc/nginx/sites-available/mempool_tor.conf
     sudo rm -f /etc/nginx/sites-available/mempool_tor_ssl.conf
@@ -321,13 +329,99 @@ if [ "$1" = "0" ] || [ "$1" = "off" ]; then
     fi
 
     echo "# OK Mempool removed."
-  
-  else 
+
+  else
     echo "# Mempool is not installed."
   fi
 
   # close ports on firewall
+  sudo ufw deny 4080
   sudo ufw deny 4081
+  exit 0
+fi
+
+# update
+if [ "$1" = "update" ]; then
+  echo "*** Checking Mempool Explorer Version ***"
+  
+  cd /home/mempool/mempool
+
+  localVersion=$(git describe --tag)
+  updateVersion=$(curl -s https://api.github.com/repos/mempool/mempool/releases/latest|grep tag_name|head -1|cut -d '"' -f4)
+
+  if [ $localVersion = $updateVersion ]; then
+      echo "***  You are up-to-date on version $localVersion ***" 
+      sudo systemctl restart mempool 2>/dev/null
+      echo "***  Restarting Mempool  ***"
+  else
+      # Preserve Config
+      sudo cp backend/mempool-config.json /home/admin
+
+      sudo -u mempool git fetch
+      sudo -u mempool git checkout $updateVersion
+
+      echo "# npm install for mempool explorer (backend)"
+
+      cd /home/mempool/mempool/backend/
+
+      sudo -u mempool NG_CLI_ANALYTICS=false npm install
+      if ! [ $? -eq 0 ]; then
+          echo "FAIL - npm install did not run correctly, aborting"
+          exit 1
+      fi
+      sudo -u mempool NG_CLI_ANALYTICS=false npm run build
+      if ! [ $? -eq 0 ]; then
+          echo "FAIL - npm run build did not run correctly, aborting"
+          exit 1
+      fi
+
+      echo "# npm install for mempool explorer (frontend)"
+
+      cd ../frontend
+      sudo -u mempool NG_CLI_ANALYTICS=false npm install
+      if ! [ $? -eq 0 ]; then
+          echo "FAIL - npm install did not run correctly, aborting"
+          exit 1
+      fi
+      sudo -u mempool NG_CLI_ANALYTICS=false npm run build
+      if ! [ $? -eq 0 ]; then
+          echo "FAIL - npm run build did not run correctly, aborting"
+          exit 1
+      fi
+
+      sudo mv /home/admin/mempool-config.json /home/mempool/mempool/backend/mempool-config.json
+      sudo chown mempool:mempool /home/mempool/mempool/backend/mempool-config.json
+
+
+      # Restore frontend files 
+      cd /home/mempool/mempool/frontend
+      sudo rsync -I -av --delete dist/mempool/ /var/www/mempool/
+      sudo chown -R www-data:www-data /var/www/mempool
+
+      cd /home/mempool/mempool
+
+      # Reinstall the mempool configuration for nginx
+      cp nginx.conf nginx-mempool.conf /etc/nginx/nginx.conf
+      sudo systemctl restart nginx
+
+      # Remove useless deps
+      echo "Removing unneccesary modules..."
+      npm prune --production
+
+
+      echo "***  Restarting Mempool  ***"
+      sudo systemctl start mempool
+
+  fi
+
+  # check for error
+  isDead=$(sudo systemctl status mempool | grep -c 'inactive (dead)')
+  if [ ${isDead} -eq 1 ]; then
+    echo "error='Mempool service start failed'"
+    exit 1
+  else
+    echo "***  Mempool version ${updateVersion} now running  ***"
+  fi
   exit 0
 fi
 

@@ -6,7 +6,8 @@ if [ "$1" == "-h" ] || [ "$1" == "help" ]; then
  exit 1
 fi
 
-# load raspiblitz conf
+# load raspiblitz info & conf
+source /home/admin/raspiblitz.info
 source /mnt/hdd/raspiblitz.conf
 
 # 1. parameter
@@ -58,7 +59,12 @@ while [ ${fallback} -eq 0 ]
 
     loopCount=$(($loopCount +1))
     echo "# calling: lncli unlock"
-    result=$(echo "$passwordC" | sudo -u bitcoin lncli --chain=${network} --network=${chain}net unlock --recovery_window=1000 --stdin 2>&1)
+    recoveryOption=""
+    if [ "${fundRecovery}" == "1" ]; then
+        recoveryOption="--recovery_window=1000 "
+        echo "# runnign unlock with ${recoveryOption}"
+    fi
+    result=$(echo "$passwordC" | sudo -u bitcoin lncli --chain=${network} --network=${chain}net unlock ${recoveryOption}--stdin 2>&1)
     wasUnlocked=$(echo "${result}" | grep -c 'successfully unlocked')
     wrongPassword=$(echo "${result}" | grep -c 'invalid passphrase')
     if [ ${wasUnlocked} -gt 0 ]; then
@@ -82,7 +88,7 @@ while [ ${fallback} -eq 0 ]
 
     else
 
-        # UNKOWN RESULT
+        # UNKNOWN RESULT
 
         # check if wallet was unlocked anyway
         walletLocked=$(sudo -u bitcoin /usr/local/bin/lncli --chain=${network} --network=${chain}net getinfo 2>&1 | grep -c unlock)
@@ -91,7 +97,7 @@ while [ ${fallback} -eq 0 ]
             exit 0
         fi
 
-        echo "# unkown error"
+        echo "# unknown error"
         if [ ${manualEntry} -eq 1 ]; then
             whiptail --title " LND ERROR " --msgbox "${result}" --ok-button "Try CLI" 8 60
             fallback=1

@@ -75,9 +75,6 @@ copyHost()
     return
   fi
 
-  echo "# install dependencies ..."
-  sudo apt-get install -y sshpass
-
   sudo rm /root/.ssh/known_hosts 2>/dev/null
   canLogin=$(sudo sshpass -p "${targetPassword}" ssh -t -o StrictHostKeyChecking=no bitcoin@${targetIP} "echo 'working'" 2>/dev/null | grep -c 'working')
   if [ ${canLogin} -eq 0 ]; then
@@ -167,8 +164,8 @@ if [ "$1" == "sourcemode" ]; then
 fi
 
 # Basic Options
-OPTIONS=(HARDWARE "Run Hardwaretest" \
-         SOFTWARE "Run Softwaretest (DebugReport)" \
+#OPTIONS=(HARDWARE "Run Hardwaretest" \
+OPTIONS=(SOFTWARE "Run Softwaretest (DebugReport)" \
          BACKUP-LND "Backup your LND data (Rescue-File)" \
          MIGRATION "Migrate Blitz Data to new Hardware" \
          COPY-SOURCE "Copy Blockchain Source Modus" \
@@ -184,15 +181,12 @@ CHOICE=$(whiptail --clear --title "Repair Options" --menu "" 18 62 11 "${OPTIONS
 
 clear
 case $CHOICE in
-  HARDWARE)
-    sudo /home/admin/05hardwareTest.sh
-    /home/admin/00mainMenu.sh
-    ;;
+#  HARDWARE)
+#    ;;
   SOFTWARE)
     sudo /home/admin/XXdebugLogs.sh
     echo "Press ENTER to return to main menu."
     read key
-    /home/admin/00mainMenu.sh
     ;;
   BACKUP-LND)
     sudo /home/admin/config.scripts/lnd.rescue.sh backup
@@ -205,7 +199,6 @@ case $CHOICE in
     sudo /home/admin/config.scripts/blitz.migration.sh "export-gui"
     echo "Press ENTER to return to main menu."
     read key
-    /home/admin/00mainMenu.sh
     ;;
   RESET-CHAIN)
     /home/admin/XXcleanHDD.sh -blockchain
@@ -219,7 +212,7 @@ case $CHOICE in
     result=""
     while [ ${#result} -eq 0 ]
     do
-        _temp="/home/admin/download/dialog.$$"
+        _temp=$(mktemp -p /dev/shm/)
         l1="Please enter the new name of your LND node:\n"
         l2="different name is better for a fresh identity\n"
         l3="one word, keep characters basic & not too long"

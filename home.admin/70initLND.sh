@@ -82,8 +82,6 @@ if [ ${configExists} -eq 0 ]; then
   sudo mkdir /mnt/hdd/lnd 2> /dev/null
   sudo chown -R bitcoin:bitcoin /mnt/hdd/lnd
   sudo cp /home/admin/assets/lnd.${network}.conf /mnt/hdd/lnd/lnd.conf
-  source <(sudo cat /mnt/hdd/${network}/${network}.conf 2>/dev/null | grep "rpcpassword" | sed 's/^[a-z]*\./lnd/g')
-  sudo sed -i "s/^${network}d.rpcpass=.*/${network}d.rpcpass=${rpcpassword}/g" /mnt/hdd/lnd/lnd.conf
   sudo chown bitcoin:bitcoin /mnt/hdd/lnd/lnd.conf
   if [ -d /home/bitcoin/.lnd ]; then
     echo "OK - LND config written"
@@ -376,7 +374,6 @@ to protect the seed words. Most users did not set this.
     if [ "${CHOICE}" == "SEED+SCB" ] || [ "${CHOICE}" == "ONLYSEED" ]; then
 
       # trigger wallet recovery
-      source /home/admin/python3-env-lnd/bin/activate
       source <(python3 /home/admin/config.scripts/lnd.initwallet.py seed ${passwordC} "${wordstring}" ${passwordD} 2>/dev/null)
 
       # check if wallet was created for real
@@ -386,6 +383,9 @@ to protect the seed words. Most users did not set this.
           err="Was not able to create wallet (unknown error)."
         fi
       fi
+
+      # set fundRecovery=1 in raspiblitz.info
+      sed -i "s/^fundRecovery=.*/fundRecovery=1/g" /home/admin/raspiblitz.info
 
       # user feedback
       if [ ${#err} -eq 0 ]; then

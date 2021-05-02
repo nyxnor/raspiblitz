@@ -28,13 +28,14 @@ if [ "$1" == "off" ]; then
   # remove double empty lines
   sudo cp /etc/tor/torrc /mnt/hdd/temp/tmp
   sudo chmod 777 /mnt/hdd/temp/tmp
+  sudo chown admin:admin /mnt/hdd/temp/tmp
   sudo awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2' /etc/tor/torrc > /mnt/hdd/temp/tmp
   sudo mv /mnt/hdd/temp/tmp /etc/tor/torrc
   sudo chmod 644 /etc/tor/torrc
   sudo chown bitcoin:bitcoin /etc/tor/torrc
 
   echo "# OK service is removed - restarting TOR ..."
-  sudo systemctl restart tor
+  sudo systemctl restart tor@default
   sleep 10
   echo "# Done"
   exit 0
@@ -99,7 +100,7 @@ HiddenServicePort $toPort 127.0.0.1:$fromPort" | sudo tee -a /etc/tor/torrc
   echo ""
   echo "Restarting Tor to activate the Hidden Service..."
   sudo chmod 644 /etc/tor/torrc
-  sudo systemctl restart tor
+  sudo systemctl restart tor@default
   sleep 10
 
   # show the Hidden Service address

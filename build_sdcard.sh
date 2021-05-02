@@ -1,146 +1,236 @@
 #!/bin/bash
 #########################################################################
 # Build your SD card image based on:
-# Raspbian Buster Desktop (2020-05-27)
-# https://www.raspberrypi.org/downloads/raspbian/
-# SHA256: b9a5c5321b3145e605b3bcd297ca9ffc350ecb1844880afd8fb75a7589b7bd04
+# raspios_arm64-2020-08-24
+# https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2021-04-09/
+# SHA256: a30a3650c3ef22a69f6f025760c6b04611a5992961a8c2cd44468f1c429d68bb
 ##########################################################################
 # setup fresh SD card with image above - login per SSH and run this script:
 ##########################################################################
 
 echo ""
 echo "*****************************************"
-echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.6   *"
+echo "* RASPIBLITZ SD CARD IMAGE SETUP v1.7   *"
 echo "*****************************************"
-echo ""
+echo "For details on optional parameters - see build script source code:"
 
-# 1st optional parameter is the BRANCH to get code from when
-# provisioning sd card with raspiblitz assets/scripts later on
-echo "*** CHECK INPUT PARAMETERS ***"
-wantedBranch="$1"
-if [ ${#wantedBranch} -eq 0 ]; then
-  wantedBranch="master"
-else
-  if [ "${wantedBranch}" == "-h" -o "${wantedBranch}" == "--help" ]; then
-     echo "Usage: [branch] [github user] [root partition] [LCD screen installed true|false] [Wifi disabled true|false]"
-     echo "Example (USB boot, no LCD and no wifi): $0 v1.6 rootzoll /dev/sdb2 false true"
-     exit 1
-  fi
+# 1st optional paramater: NO-INTERACTION
+# ----------------------------------------
+# When 'true' then no questions will be ask on building .. so it can be used in build scripts
+# for containers or as part of other build scripts (default is false)
+
+noInteraction="$1"
+if [ ${#noInteraction} -eq 0 ]; then
+  noInteraction="false"
 fi
-echo "will use code from branch --> '${wantedBranch}'"
+if [ "${noInteraction}" != "true" ] && [ "${noInteraction}" != "false" ]; then
+  echo "ERROR: NO-INTERACTION parameter needs to be either 'true' or 'false'"
+  exit 1
+else
+  echo "1) will use NO-INTERACTION --> '${noInteraction}'"
+fi
 
-# 2nd optional parameter is the GITHUB-USERNAME to get code from when
-# provisioning sd card with raspiblitz assets/scripts later on
-# if 2nd parameter is used - 1st is mandatory
-githubUser="$2"
+# 2nd optional paramater: FATPACK
+# -------------------------------
+# could be 'true' or 'false' (default)
+# When 'true' it will pre-install needed frameworks for additional apps and features
+# as a convenience to safe on install and update time for additional apps.
+# When 'false' it will just install the bare minimum and additional apps will just
+# install needed frameworks and libraries on demand when activated by user.
+# Use 'false' if you want to run your node without: go, dot-net, nodejs, docker, ...
+
+fatpack="$2"
+if [ ${#fatpack} -eq 0 ]; then
+  fatpack="false"
+fi
+if [ "${fatpack}" != "true" ] && [ "${fatpack}" != "false" ]; then
+  echo "ERROR: FATPACK parameter needs to be either 'true' or 'false'"
+  exit 1
+else
+  echo "2) will use FATPACK --> '${fatpack}'"
+fi
+
+# 3rd optional paramater: GITHUB-USERNAME
+# ---------------------------------------
+# could be any valid github-user that has a fork of the raspiblitz repo - 'rootzoll' is default
+# The 'raspiblitz' repo of this user is used to provisioning sd card 
+# with raspiblitz assets/scripts later on.
+# If this parameter is set also the branch needs to be given (see next parameter).
+githubUser="$3"
 if [ ${#githubUser} -eq 0 ]; then
   githubUser="rootzoll"
 fi
-echo "will use code from user --> '${githubUser}'"
+echo "3) will use GITHUB-USERNAME --> '${githubUser}'"
 
-# 3rd optional parameter is the root partition
-rootPartition="$3"
-if [ ${#rootPartition} -eq 0 ]; then
-  rootPartition="/dev/mmcblk0p2"
+# 4th optional paramater: GITHUB-BRANCH
+# -------------------------------------
+# could be any valid branch of the given GITHUB-USERNAME forked raspiblitz repo - 'dev' is default
+githubBranch="$4"
+if [ ${#githubBranch} -eq 0 ]; then
+  githubBranch="dev"
 fi
-echo "will use root partition --> '${rootPartition}'"
+echo "4) will use GITHUB-BRANCH --> '${githubBranch}'"
 
-# 4th optional parameter is the LCD screen
-lcdInstalled="$4"
-if [ ${#lcdInstalled} -eq 0 ]; then
-  lcdInstalled="true"
+# 5th optional paramater: DISPLAY-CLASS
+# ----------------------------------------
+# Could be 'hdmi', 'headless' or 'lcd'
+# On 'false' the standard video output is used (HDMI) by default.
+# https://github.com/rootzoll/raspiblitz/issues/1265#issuecomment-813369284
+displayClass="$5"
+if [ ${#displayClass} -eq 0 ] || [ "${displayClass}" == "false" ]; then
+  displayClass="hdmi"
+fi
+if [ "${displayClass}" != "hdmi" ] && [ "${displayClass}" != "lcd" ] && [ "${displayClass}" != "headless" ]; then
+  echo "ERROR: DISPLAY-CLASS parameter needs to be 'lcd', 'hdmi' or 'headless'"
+  exit 1
 else
-  if [ "${lcdInstalled}" != "false" ]; then
-     lcdInstalled="true"
-  fi
+  echo "5) will use DISPLAY-CLASS --> '${displayClass}'"
 fi
-echo "will activate LCD screen --> '${lcdInstalled}'"
 
-# 5th optional parameter is Wifi
-disableWifi="$5"
-if [ ${#disableWifi} -eq 0 ]; then
-  disableWifi="false"
+# 6th optional paramater: TWEAK-BOOTDRIVE
+# ---------------------------------------
+# could be 'true' (default) or 'false'
+# If 'true' it will try (based on the base OS) to optimize the boot drive.
+# If 'false' this will skipped.
+tweakBootdrives="$6"
+if [ ${#tweakBootdrives} -eq 0 ]; then
+  tweakBootdrives="true"
+fi
+if [ "${tweakBootdrives}" != "true" ] && [ "${tweakBootdrives}" != "false" ]; then
+  echo "ERROR: TWEAK-BOOTDRIVE parameter needs to be either 'true' or 'false'"
+  exit 1
 else
-  if [ "${disableWifi}" != "true" ]; then
-     disableWifi="false"
-  fi
-fi
-echo "will disable wifi --> '${disableWifi}'"
-
-# 6th optional parameter is Wifi country
-wifiCountry="$6"
-if [ ${#wifiCountry} -eq 0 ]; then
-  wifiCountry="US"
-fi
-if [ "${disableWifi}" == "false" ]; then
-   echo "will use Wifi country --> '${wifiCountry}'"
+  echo "6) will use TWEAK-BOOTDRIVE --> '${tweakBootdrives}'"
 fi
 
-echo -n "Do you wish to install Raspiblitz branch ${wantedBranch}? (yes/no) "
-read installRaspiblitzAnswer
-if [ "$installRaspiblitzAnswer" == "yes" ] ;then
-   echo ""
-   echo ""
-else
-   exit 1
+# 7th optional paramater: WIFI
+# ---------------------------------------
+# could be 'false' or 'true' (default) or a valid WIFI country code like 'US' (default)
+# If 'false' WIFI will be deactivated by default
+# If 'true' WIFI will be activated by with default country code 'US'
+# If any valid wifi country code Wifi will be activated with that country code by default
+modeWifi="$7"
+if [ ${#modeWifi} -eq 0 ] || [ "${modeWifi}" == "true" ]; then
+  modeWifi="US"
 fi
+echo "7) will use WIFI --> '${modeWifi}'"
 
-
-echo "Installing Raspiblitz..."
-
-sleep 3
-
-echo ""
-echo "*** CHECK BASE IMAGE ***"
-
-# armv7=32Bit , armv8=64Bit
-echo "Detect CPU architecture ..."
+# AUTO-DETECTION: CPU-ARCHITECTURE
+# ---------------------------------------
+# keep in mind that DietPi for Raspberry is also a stripped down Raspbian
 isARM=$(uname -m | grep -c 'arm')
 isAARCH64=$(uname -m | grep -c 'aarch64')
 isX86_64=$(uname -m | grep -c 'x86_64')
-if [ ${isARM} -eq 0 ] && [ ${isAARCH64} -eq 0 ] && [ ${isX86_64} -eq 0 ] ; then
+cpu="?"
+if [ ${isARM} -gt 0 ]; then
+  cpu="arm"
+elif [ ${isAARCH64} -gt 0 ]; then
+  cpu="aarch64"
+elif [ ${isX86_64} -gt 0 ]; then
+  cpu="x86_64"
+else
   echo "!!! FAIL !!!"
-  echo "Can only build on ARM, aarch64, x86_64 or i386 not on:"
+  echo "Can only build on ARM, aarch64, x86_64 not on:"
   uname -m
   exit 1
-else
- echo "OK running on $(uname -m) architecture."
 fi
+echo "X) will use CPU-ARCHITECTURE --> '${cpu}'"
 
-# keep in mind that DietPi for Raspberry is also a stripped down Raspbian
-echo "Detect Base Image ..."
-baseImage="?"
+# AUTO-DETECTION: OPERATINGSYSTEM
+# ---------------------------------------
+baseimage="?"
 isDietPi=$(uname -n | grep -c 'DietPi')
-isRaspbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Raspbian')
-isArmbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Debian')
-isUbuntu=$(cat /etc/os-release 2>/dev/null | grep -c 'Ubuntu')
+isRaspbian=$(grep -c 'Raspbian' /etc/os-release 2>/dev/null)
+isDebian=$(grep -c 'Debian' /etc/os-release 2>/dev/null)
+isUbuntu=$(grep -c 'Ubuntu' /etc/os-release 2>/dev/null)
 isNvidia=$(uname -a | grep -c 'tegra')
 if [ ${isRaspbian} -gt 0 ]; then
-  baseImage="raspbian"
+  baseimage="raspbian"
 fi
-if [ ${isArmbian} -gt 0 ]; then
-  baseImage="armbian"
+if [ ${isDebian} -gt 0 ]; then
+  if [ $(uname -n | grep -c 'rpi') -gt 0 ] && [ ${isAARCH64} -gt 0 ]; then
+    baseimage="debian_rpi64"
+  elif [ $(uname -n | grep -c 'raspberrypi') -gt 0 ] && [ ${isAARCH64} -gt 0 ]; then
+    baseimage="raspios_arm64"
+  elif [ ${isAARCH64} -gt 0 ] || [ ${isARM} -gt 0 ] ; then
+    baseimage="armbian"
+  else
+    baseimage="debian"
+  fi
 fi
 if [ ${isUbuntu} -gt 0 ]; then
-baseImage="ubuntu"
+  baseimage="ubuntu"
 fi
 if [ ${isDietPi} -gt 0 ]; then
-  baseImage="dietpi"
+  baseimage="dietpi"
 fi
-if [ "${baseImage}" = "?" ]; then
+if [ "${baseimage}" = "?" ]; then
   cat /etc/os-release 2>/dev/null
-  echo "!!! FAIL !!!"
-  echo "Base Image cannot be detected or is not supported."
+  echo "!!! FAIL: Base Image cannot be detected or is not supported."
   exit 1
+fi
+echo "X) will use OPERATINGSYSTEM ---> '${baseimage}'"
+
+# USER-CONFIRMATION
+if [ "${noInteraction}" != "true" ]; then
+  echo -n "Do you agree with all parameters above? (yes/no) "
+  read installRaspiblitzAnswer
+  if [ "$installRaspiblitzAnswer" != "yes" ] ; then
+    exit 1
+  fi
+fi
+echo "Building RaspiBlitz ..."
+echo ""
+sleep 3
+
+# INSTALL TOR
+echo "*** INSTALL TOR BY DEFAULT ***"
+echo ""
+sudo apt install -y dirmngr
+echo "*** Adding KEYS deb.torproject.org ***"
+# fix for v1.6 base image https://github.com/rootzoll/raspiblitz/issues/1906#issuecomment-755299759
+wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --import
+sudo gpg --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | sudo apt-key add -
+torKeyAvailable=$(sudo gpg --list-keys | grep -c "A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89")
+if [ ${torKeyAvailable} -eq 0 ]; then
+  echo "!!! FAIL: Was not able to import deb.torproject.org key"
+  exit 1
+fi
+echo "- OK key added"
+
+echo "*** Adding Tor Sources to sources.list ***"
+torSourceListAvailable=$(sudo grep -c 'https://deb.torproject.org/torproject.org' /etc/apt/sources.list)
+echo "torSourceListAvailable=${torSourceListAvailable}"  
+if [ ${torSourceListAvailable} -eq 0 ]; then
+  echo "- adding TOR sources ..."
+  if [ "${baseimage}" = "raspbian" ] || [ "${baseimage}" = "raspios_arm64" ] || [ "${baseimage}" = "armbian" ] || [ "${baseimage}" = "dietpi" ]; then
+    echo "- using https://deb.torproject.org/torproject.org buster"
+    echo "deb https://deb.torproject.org/torproject.org buster main" | sudo tee -a /etc/apt/sources.list
+    echo "deb-src https://deb.torproject.org/torproject.org buster main" | sudo tee -a /etc/apt/sources.list
+  elif [ "${baseimage}" = "ubuntu" ]; then
+    echo "- using https://deb.torproject.org/torproject.org focal"
+    echo "deb https://deb.torproject.org/torproject.org focal main" | sudo tee -a /etc/apt/sources.list
+    echo "deb-src https://deb.torproject.org/torproject.org focal main" | sudo tee -a /etc/apt/sources.list    
+  else
+    echo "!!! FAIL: No Tor sources for os: ${baseimage}"
+    exit 1
+  fi
+  echo "- OK sources added"
 else
-  echo "OK running ${baseImage}"
+  echo "TOR sources are available"
 fi
 
-if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ] ; then
-  # fixing locales for build
-  # https://github.com/rootzoll/raspiblitz/issues/138
-  # https://daker.me/2014/10/how-to-fix-perl-warning-setting-locale-failed-in-raspbian.html
-  # https://stackoverflow.com/questions/38188762/generate-all-locales-in-a-docker-image
+echo "*** Install & Enable Tor ***"
+sudo apt update
+sudo apt install tor tor-arm torsocks -y
+echo ""
+
+# FIXING LOCALES
+# https://github.com/rootzoll/raspiblitz/issues/138
+# https://daker.me/2014/10/how-to-fix-perl-warning-setting-locale-failed-in-raspbian.html
+# https://stackoverflow.com/questions/38188762/generate-all-locales-in-a-docker-image
+if [ "${baseimage}" = "raspbian" ] || [ "${baseimage}" = "dietpi" ] || \
+   [ "${baseimage}" = "raspios_arm64" ]||[ "${baseimage}" = "debian_rpi64" ]; then
   echo ""
   echo "*** FIXING LOCALES FOR BUILD ***"
 
@@ -149,13 +239,22 @@ if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ] ; then
   sudo locale-gen
   export LANGUAGE=en_US.UTF-8
   export LANG=en_US.UTF-8
-  export LC_ALL=en_US.UTF-8
+  if [ "${baseimage}" = "raspbian" ] || [ "${baseimage}" = "dietpi" ]; then
+    export LC_ALL=en_US.UTF-8
 
-  # https://github.com/rootzoll/raspiblitz/issues/684
-  sudo sed -i "s/^    SendEnv LANG LC.*/#   SendEnv LANG LC_*/g" /etc/ssh/ssh_config
+    # https://github.com/rootzoll/raspiblitz/issues/684
+    sudo sed -i "s/^    SendEnv LANG LC.*/#   SendEnv LANG LC_*/g" /etc/ssh/ssh_config
 
-  # remove unneccesary files
-  sudo rm -rf /home/pi/MagPi
+    # remove unneccesary files
+    sudo rm -rf /home/pi/MagPi
+    # https://www.reddit.com/r/linux/comments/lbu0t1/microsoft_repo_installed_on_all_raspberry_pis/
+    sudo rm -f /etc/apt/sources.list.d/vscode.list 
+    sudo rm -f /etc/apt/trusted.gpg.d/microsoft.gpg
+  fi
+  if [ ! -f /etc/apt/sources.list.d/raspi.list ]; then
+    echo "# Add the archive.raspberrypi.org/debian/ to the sources.list"
+    echo "deb http://archive.raspberrypi.org/debian/ buster main" | sudo tee /etc/apt/sources.list.d/raspi.list
+  fi
 fi
 
 # remove some (big) packages that are not needed
@@ -185,33 +284,40 @@ sudo apt update -y
 sudo apt upgrade -f -y
 
 echo ""
-echo "*** PREPARE ${baseImage} ***"
+echo "*** PREPARE ${baseimage} ***"
 
-# special prepare when DietPi
-if [ "${baseImage}" = "dietpi" ]; then
-  echo "renaming dietpi user to pi"
+# make sure the pi user is present
+if [ "$(compgen -u | grep -c dietpi)" -gt 0 ];then
+  echo "# Renaming dietpi user to pi"
   sudo usermod -l pi dietpi
+elif [ "$(compgen -u | grep -c pi)" -eq 0 ];then  
+  echo "# Adding the user pi"
+  sudo adduser --disabled-password --gecos "" pi
+  sudo adduser pi sudo
 fi
 
 # special prepare when Raspbian
-if [ "${baseImage}" = "raspbian" ]; then
+if [ "${baseimage}" = "raspbian" ]||[ "${baseimage}" = "raspios_arm64" ]||\
+   [ "${baseimage}" = "debian_rpi64" ]; then
+  sudo apt install -y raspi-config 
   # do memory split (16MB)
   sudo raspi-config nonint do_memory_split 16
   # set to wait until network is available on boot (0 seems to yes)
   sudo raspi-config nonint do_boot_wait 0
   # set WIFI country so boot does not block
-  if [ "${disableWifi}" == "false" ]; then
-     sudo raspi-config nonint do_wifi_country $wifiCountry
+  if [ "${modeWifi}" != "false" ]; then
+    # this will undo the softblock of rfkill on RaspiOS
+    sudo raspi-config nonint do_wifi_country $modeWifi
   fi
   # see https://github.com/rootzoll/raspiblitz/issues/428#issuecomment-472822840
 
   configFile="/boot/config.txt"
   max_usb_current="max_usb_current=1"
-  max_usb_currentDone=$(cat $configFile|grep -c "$max_usb_current")
+  max_usb_currentDone=$(grep -c "$max_usb_current" $configFile)
 
   if [ ${max_usb_currentDone} -eq 0 ]; then
-    sudo echo "" >> $configFile
-    sudo echo "# Raspiblitz" >> $configFile
+    echo "" | sudo tee -a $configFile
+    echo "# Raspiblitz" | sudo tee -a $configFile
     echo "$max_usb_current" | sudo tee -a $configFile
   else
     echo "$max_usb_current already in $configFile"
@@ -219,37 +325,34 @@ if [ "${baseImage}" = "raspbian" ]; then
 
   # run fsck on sd root partition on every startup to prevent "maintenance login" screen
   # see: https://github.com/rootzoll/raspiblitz/issues/782#issuecomment-564981630
-  # use command to check last fsck check: sudo tune2fs -l ${rootPartition}
-  sudo tune2fs -c 1 ${rootPartition}
   # see https://github.com/rootzoll/raspiblitz/issues/1053#issuecomment-600878695
+  # use command to check last fsck check: sudo tune2fs -l /dev/mmcblk0p2
+  if [ "${tweakBootdrives}" == "true" ]; then
+    echo "* running tune2fs"
+    sudo tune2fs -c 1 /dev/mmcblk0p2
+  else
+    echo "* skipping tweakBootdrives"
+  fi
 
   # edit kernel parameters
   kernelOptionsFile=/boot/cmdline.txt
   fsOption1="fsck.mode=force"
   fsOption2="fsck.repair=yes"
-  fsOption1InFile=$(cat ${kernelOptionsFile}|grep -c ${fsOption1})
-  fsOption2InFile=$(cat ${kernelOptionsFile}|grep -c ${fsOption2})
+  fsOption1InFile=$(grep -c ${fsOption1} ${kernelOptionsFile})
+  fsOption2InFile=$(grep -c ${fsOption2} ${kernelOptionsFile})
 
   if [ ${fsOption1InFile} -eq 0 ]; then
-     sudo sed -i "s/^/$fsOption1 /g" "$kernelOptionsFile"
-     echo "$fsOption1 added to $kernelOptionsFile"
+    sudo sed -i "s/^/$fsOption1 /g" "$kernelOptionsFile"
+    echo "$fsOption1 added to $kernelOptionsFile"
   else
-     echo "$fsOption1 already in $kernelOptionsFile"
+    echo "$fsOption1 already in $kernelOptionsFile"
   fi
   if [ ${fsOption2InFile} -eq 0 ]; then
-     sudo sed -i "s/^/$fsOption2 /g" "$kernelOptionsFile"
-     echo "$fsOption2 added to $kernelOptionsFile"
+    sudo sed -i "s/^/$fsOption2 /g" "$kernelOptionsFile"
+    echo "$fsOption2 added to $kernelOptionsFile"
   else
-     echo "$fsOption2 already in $kernelOptionsFile"
+    echo "$fsOption2 already in $kernelOptionsFile"
   fi
-
-fi
-
-# special prepare when Ubuntu or Armbian
-if [ "${baseImage}" = "ubuntu" ] || [ "${baseImage}" = "armbian" ]; then
-  # make user pi and add to sudo
-  sudo adduser --disabled-password --gecos "" pi
-  sudo adduser pi sudo
 fi
 
 # special prepare when Nvidia Jetson Nano
@@ -266,28 +369,39 @@ echo "*** CONFIG ***"
 echo "root:raspiblitz" | sudo chpasswd
 echo "pi:raspiblitz" | sudo chpasswd
 
-if [ "${lcdInstalled}" == "true" ]; then
-   if [ "${baseImage}" = "raspbian" ]; then
-      # set Raspi to boot up automatically with user pi (for the LCD)
-      # https://www.raspberrypi.org/forums/viewtopic.php?t=21632
-      sudo raspi-config nonint do_boot_behaviour B2
-      sudo bash -c "echo '[Service]' >> /etc/systemd/system/getty@tty1.service.d/autologin.conf"
-      sudo bash -c "echo 'ExecStart=' >> /etc/systemd/system/getty@tty1.service.d/autologin.conf"
-      sudo bash -c "echo 'ExecStart=-/sbin/agetty --autologin pi --noclear %I 38400 linux' >> /etc/systemd/system/getty@tty1.service.d/autologin.conf"
-   fi
-
-   if [ "${baseImage}" = "dietpi" ]; then
-      # set DietPi to boot up automatically with user pi (for the LCD)
-      # requires AUTO_SETUP_AUTOSTART_TARGET_INDEX=7 in the dietpi.txt
-      # /DietPi/dietpi/dietpi-autostart overwrites /etc/systemd/system/getty@tty1.service.d/dietpi-autologin.conf on reboot
-      sudo sed -i 's/agetty --autologin root %I $TERM/agetty --autologin pi --noclear %I 38400 linux/' /DietPi/dietpi/dietpi-autostart
-   fi
-
-   if [ "${baseImage}" = "ubuntu" ] || [ "${baseImage}" = "armbian" ]; then
-      sudo bash -c "echo '[Service]' >> /lib/systemd/system/getty@.service"
-      sudo bash -c "echo 'ExecStart=' >> /lib/systemd/system/getty@.service"
-      sudo bash -c "echo 'ExecStart=-/sbin/agetty --autologin pi --noclear %I 38400 linux' >> /lib/systemd/system/getty@.service"
-   fi
+# prepare auto-start of 00infoLCD.sh script on pi user login (just kicks in if auto-login of pi is activated in HDMI or LCD mode)
+if [ "${baseimage}" = "raspbian" ]||[ "${baseimage}" = "raspios_arm64" ]||\
+  [ "${baseimage}" = "debian_rpi64" ]||[ "${baseimage}" = "armbian" ]||\
+  [ "${baseimage}" = "ubuntu" ]; then
+  homeFile=/home/pi/.bashrc
+  autostartDone=$(grep -c "automatic start the LCD" $homeFile)
+  if [ ${autostartDone} -eq 0 ]; then
+    # bash autostart for pi
+    # run as exec to dont allow easy physical access by keyboard
+    # see https://github.com/rootzoll/raspiblitz/issues/54
+    sudo bash -c 'echo "# automatic start the LCD info loop" >> /home/pi/.bashrc'
+    sudo bash -c 'echo "SCRIPT=/home/admin/00infoLCD.sh" >> /home/pi/.bashrc'
+    sudo bash -c 'echo "# replace shell with script => logout when exiting script" >> /home/pi/.bashrc'
+    sudo bash -c 'echo "exec \$SCRIPT" >> /home/pi/.bashrc'
+    echo "autostart LCD added to $homeFile"
+  else
+    echo "autostart LCD already in $homeFile"
+  fi
+elif [ "${baseimage}" = "dietpi" ]; then
+  homeFile=/home/dietpi/.bashrc
+  autostartDone=$(grep -c "automatic start the LCD" $homeFile)
+  if [ ${autostartDone} -eq 0 ]; then
+    # bash autostart for dietpi
+    sudo bash -c 'echo "# automatic start the LCD info loop" >> /home/dietpi/.bashrc'
+    sudo bash -c 'echo "SCRIPT=/home/admin/00infoLCD.sh" >> /home/dietpi/.bashrc'
+    sudo bash -c 'echo "# replace shell with script => logout when exiting script" >> /home/dietpi/.bashrc'
+    sudo bash -c 'echo "exec \$SCRIPT" >> /home/dietpi/.bashrc'
+    echo "autostart LCD added to $homeFile"
+  else
+    echo "autostart LCD already in $homeFile"
+  fi
+else
+  echo "WARN: Script Autostart not available for baseimage(${baseimage}) - may just run on 'headless'"
 fi
 
 # change log rotates
@@ -373,7 +487,7 @@ sudo apt install -y vnstat
 sudo apt install -y parted dosfstools
 
 # prepare for BTRFS data drive raid
-sudo apt install -y btrfs-progs btrfs-tools
+sudo apt install -y btrfs-progs
 
 # network tools
 sudo apt install -y autossh telnet
@@ -389,7 +503,7 @@ sudo apt install -y sysbench
 sudo apt install -y build-essential
 
 # add armbian-config
-if [ "${baseImage}" = "armbian" ]; then
+if [ "${baseimage}" = "armbian" ]; then
   # add armbian config
   sudo apt install armbian-config -y
 fi
@@ -413,8 +527,14 @@ sudo apt install -y netcat
 # install OpenSSH client + server
 sudo apt install -y openssh-client
 sudo apt install -y openssh-sftp-server
+sudo apt install -y sshpass
 # install killall, fuser
 sudo apt install -y psmisc
+# install firewall
+sudo apt install -y ufw
+# make sure sqlite3 is available
+sudo apt install -y sqlite3
+
 
 sudo apt clean
 sudo apt -y autoremove
@@ -431,6 +551,13 @@ sudo chsh admin -s /bin/bash
 
 # configure sudo for usage without password entry
 echo '%sudo ALL=(ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
+
+# WRITE BASIC raspiblitz.info to sdcard
+echo "baseimage=${baseimage}" > /home/admin/raspiblitz.info
+echo "cpu=${cpu}" >> /home/admin/raspiblitz.info
+echo "displayClass=headless" >> /home/admin/raspiblitz.info
+sudo mv ./raspiblitz.info /home/admin/raspiblitz.info
+sudo chmod 755 /home/admin/raspiblitz.info
 
 echo ""
 echo "*** ADDING SERVICE USER bitcoin"
@@ -451,6 +578,106 @@ sudo /usr/sbin/groupadd --force --gid 9704 lndchainnotifier
 sudo /usr/sbin/groupadd --force --gid 9705 lndsigner
 sudo /usr/sbin/groupadd --force --gid 9706 lndwalletkit
 sudo /usr/sbin/groupadd --force --gid 9707 lndrouter
+
+echo ""
+echo "*** Python DEFAULT libs & dependencies ***"
+
+# for setup shell scripts
+sudo apt -y install dialog bc python3-dialog
+
+# libs (for global python scripts)
+sudo -H python3 -m pip install grpcio==1.36.1
+sudo -H python3 -m pip install googleapis-common-protos==1.53.0
+sudo -H python3 -m pip install toml==0.10.1
+sudo -H python3 -m pip install j2cli==0.3.10
+sudo -H python3 -m pip install requests[socks]==2.21.0
+
+echo ""
+echo "*** SHELL SCRIPTS AND ASSETS ***"
+
+# copy raspiblitz repo from github
+cd /home/admin/
+sudo -u admin git config --global user.name "${githubUser}"
+sudo -u admin git config --global user.email "johndoe@example.com"
+sudo -u admin rm -rf /home/admin/raspiblitz
+sudo -u admin git clone -b ${githubBranch} https://github.com/${githubUser}/raspiblitz.git
+sudo -u admin cp -r /home/admin/raspiblitz/home.admin/*.* /home/admin
+sudo -u admin cp -r /home/admin/raspiblitz/home.admin/.tmux.conf /home/admin
+sudo -u admin chmod +x *.sh
+sudo -u admin cp -r /home/admin/raspiblitz/home.admin/assets /home/admin/
+sudo -u admin cp -r /home/admin/raspiblitz/home.admin/config.scripts /home/admin/
+sudo -u admin chmod +x /home/admin/config.scripts/*.sh
+
+# install newest version of BlitzPy
+blitzpy_wheel=$(ls -trR /home/admin/raspiblitz/home.admin/BlitzPy/dist | grep -E "*any.whl" | tail -n 1)
+blitzpy_version=$(echo ${blitzpy_wheel} | grep -oE "([0-9]\.[0-9]\.[0-9])")
+echo ""
+echo "*** INSTALLING BlitzPy Version: ${blitzpy_version} ***"
+sudo -H /usr/bin/python -m pip install "/home/admin/raspiblitz/home.admin/BlitzPy/dist/${blitzpy_wheel}" >/dev/null 2>&1 
+
+# make sure lndlibs are patched for compatibility for both Python2 and Python3
+if ! grep -Fxq "from __future__ import absolute_import" /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py; then
+  sed -i -E '1 a from __future__ import absolute_import' /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py
+fi
+if ! grep -Eq "^from . import.*" /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py; then
+  sed -i -E 's/^(import.*_pb2)/from . \1/' /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py
+fi
+
+# add /sbin to path for all
+sudo bash -c "echo 'PATH=\$PATH:/sbin' >> /etc/profile"
+
+echo ""
+echo "*** RASPIBLITZ EXTRAS ***"
+
+# for background processes
+sudo apt -y install screen
+
+# for multiple (detachable/background) sessions when using SSH
+# https://github.com/rootzoll/raspiblitz/issues/990
+sudo apt -y install tmux
+
+# optimization for torrent download
+sudo bash -c "echo 'net.core.rmem_max = 4194304' >> /etc/sysctl.conf"
+sudo bash -c "echo 'net.core.wmem_max = 1048576' >> /etc/sysctl.conf"
+
+# install a command-line fuzzy finder (https://github.com/junegunn/fzf)
+sudo apt -y install fzf
+
+sudo bash -c "echo '' >> /home/admin/.bashrc"
+sudo bash -c "echo '# https://github.com/rootzoll/raspiblitz/issues/1784' >> /home/admin/.bashrc"
+sudo bash -c "echo 'NG_CLI_ANALYTICS=ci' >> /home/admin/.bashrc"
+
+homeFile=/home/admin/.bashrc
+keyBindings="source /usr/share/doc/fzf/examples/key-bindings.bash"
+keyBindingsDone=$(grep -c "$keyBindings" $homeFile)
+
+if [ ${keyBindingsDone} -eq 0 ]; then
+  sudo bash -c "echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/admin/.bashrc"
+  echo "key-bindings added to $homeFile"
+else
+  echo "key-bindings already in $homeFile"
+fi
+
+homeFile=/home/admin/.bashrc
+autostart="automatically start main menu"
+autostartDone=$(grep -c "$autostart" $homeFile)
+
+if [ ${autostartDone} -eq 0 ]; then
+  # bash autostart for admin
+  sudo bash -c "echo '# shortcut commands' >> /home/admin/.bashrc"
+  sudo bash -c "echo 'source /home/admin/_commands.sh' >> /home/admin/.bashrc"
+  sudo bash -c "echo '# automatically start main menu for admin unless' >> /home/admin/.bashrc"
+  sudo bash -c "echo '# when running in a tmux session' >> /home/admin/.bashrc"
+  sudo bash -c "echo 'if [ -z \"\$TMUX\" ]; then' >> /home/admin/.bashrc"
+  sudo bash -c "echo '    ./00raspiblitz.sh' >> /home/admin/.bashrc"
+  sudo bash -c "echo 'fi' >> /home/admin/.bashrc"
+  echo "autostart added to $homeFile"
+else
+  echo "autostart already in $homeFile"
+fi
+
+sudo bash -c "echo '' >> /home/admin/.bashrc"
+sudo bash -c "echo '# Raspiblitz' >> /home/admin/.bashrc"
 
 echo ""
 echo "*** SWAP FILE ***"
@@ -475,15 +702,132 @@ sudo sed --in-place -i "23s/.*/session required pam_limits.so/" /etc/pam.d/commo
 sudo sed --in-place -i "25s/.*/session required pam_limits.so/" /etc/pam.d/common-session-noninteractive
 sudo bash -c "echo '# end of pam-auth-update config' >> /etc/pam.d/common-session-noninteractive"
 
+
+# *** fail2ban ***
+# based on https://stadicus.github.io/RaspiBolt/raspibolt_21_security.html
+echo "*** HARDENING ***"
+sudo apt install -y --no-install-recommends python3-systemd fail2ban 
+
+# *** CACHE DISK IN RAM ***
+echo "Activating CACHE RAM DISK ... "
+sudo /home/admin/config.scripts/blitz.cache.sh on
+
+# *** Wifi, Bluetooth & other configs ***
+if [ "${baseimage}" = "raspbian" ]||[ "${baseimage}" = "raspios_arm64"  ]||\
+   [ "${baseimage}" = "debian_rpi64" ]; then
+   
+  if [ "${modeWifi}" == "false" ]; then
+    echo ""
+    echo "*** DISABLE WIFI ***"
+    sudo systemctl disable wpa_supplicant.service
+    sudo ifconfig wlan0 down
+  fi
+
+  echo ""
+  echo "*** DISABLE BLUETOOTH ***"
+
+  configFile="/boot/config.txt"
+  disableBT="dtoverlay=disable-bt"
+  disableBTDone=$(grep -c "$disableBT" $configFile)
+
+  if [ ${disableBTDone} -eq 0 ]; then
+    # disable bluetooth module
+    sudo echo "" >> $configFile
+    sudo echo "# Raspiblitz" >> $configFile
+    echo 'dtoverlay=pi3-disable-bt' | sudo tee -a $configFile
+    echo 'dtoverlay=disable-bt' | sudo tee -a $configFile
+  else
+    echo "disable BT already in $configFile"
+  fi
+
+  # remove bluetooth services
+  sudo systemctl disable bluetooth.service
+  sudo systemctl disable hciuart.service
+
+  # remove bluetooth packages
+  sudo apt remove -y --purge pi-bluetooth bluez bluez-firmware
+  echo
+
+  # disable audio
+  echo "*** DISABLE AUDIO (snd_bcm2835) ***"
+  sudo sed -i "s/^dtparam=audio=on/# dtparam=audio=on/g" /boot/config.txt
+  echo
+  
+  # disable DRM VC4 V3D
+  echo "*** DISABLE DRM VC4 V3D driver ***"
+  dtoverlay=vc4-fkms-v3d
+  sudo sed -i "s/^dtoverlay=vc4-fkms-v3d/# dtoverlay=vc4-fkms-v3d/g" /boot/config.txt
+  echo
+
+  # I2C fix (make sure dtparam=i2c_arm is not on)
+  # see: https://github.com/rootzoll/raspiblitz/issues/1058#issuecomment-739517713
+  sudo sed -i "s/^dtparam=i2c_arm=.*//g" /boot/config.txt 
+fi
+
+# *** FATPACK *** (can be activated by parameter - see details at start of script)
+if [ "${fatpack}" == "true" ]; then
+  echo "*** FATPACK ***"
+  echo "* Adding nodeJS Framework ..."
+  sudo /home/admin/config.scripts/bonus.nodejs.sh on
+  if [ "$?" != "0" ]; then
+    echo "FATPACK FAILED"
+    exit 1
+  fi
+  echo "* Optional Packages (may be needed for extended features)"
+  sudo apt-get install -y qrencode
+  sudo apt-get install -y btrfs-tools
+  sudo apt-get install -y secure-delete
+  sudo apt-get install -y fbi
+  sudo apt-get install -y ssmtp
+  sudo apt-get install -y unclutter xterm python3-pyqt5
+  sudo apt-get install -y xfonts-terminus
+  sudo apt-get install -y nginx apache2-utils
+  sudo apt-get install -y nginx
+  sudo apt-get install -y python3-jinja2
+  sudo apt-get install -y socat
+  sudo apt-get install -y libatlas-base-dev
+  sudo apt-get install -y mariadb-server mariadb-client
+  sudo apt-get install -y hexyl
+  sudo apt-get install -y autossh
+
+  # *** UPDATE FALLBACK NODE LIST (only as part of fatpack) *** see https://github.com/rootzoll/raspiblitz/issues/1888
+  echo "*** FALLBACK NODE LIST ***"
+  sudo -u admin curl -H "Accept: application/json; indent=4" https://bitnodes.io/api/v1/snapshots/latest/ -o /home/admin/fallback.nodes
+  byteSizeList=$(sudo -u admin stat -c %s /home/admin/fallback.nodes)
+  if [ ${#byteSizeList} -eq 0 ] || [ ${byteSizeList} -lt 10240 ]; then 
+    echo "WARN: Failed downloading fresh FALLBACK NODE LIST --> https://bitnodes.io/api/v1/snapshots/latest/"
+    sudo rm /home/admin/fallback.nodes 2>/dev/null
+    sudo cp /home/admin/assets/fallback.nodes /home/admin/fallback.nodes
+  fi
+  sudo chown admin:admin /home/admin/fallback.nodes
+
+else
+  echo "* skipping FATPACK"
+fi
+
+# *** BOOTSTRAP ***
+echo ""
+echo "*** RASPI BOOTSTRAP SERVICE ***"
+sudo chmod +x /home/admin/_bootstrap.sh
+sudo cp /home/admin/assets/bootstrap.service /etc/systemd/system/bootstrap.service
+sudo systemctl enable bootstrap
+
+# *** BACKGROUND ***
+echo ""
+echo "*** RASPI BACKGROUND SERVICE ***"
+sudo chmod +x /home/admin/_background.sh
+sudo cp /home/admin/assets/background.service /etc/systemd/system/background.service
+sudo systemctl enable background
+
 # "*** BITCOIN ***"
 # based on https://github.com/Stadicus/guides/blob/master/raspibolt/raspibolt_30_bitcoin.md#installation
 
 echo ""
-echo "*** PREPARING BITCOIN & Co ***"
+echo "*** PREPARING BITCOIN ***"
 
 # set version (change if update is available)
 # https://bitcoincore.org/en/download/
-bitcoinVersion="0.20.1"
+bitcoinVersion="0.21.0"
 
 # needed to check code signing
 laanwjPGP="01EA5486DE18A882D4C2684590C8019E36C2E964"
@@ -500,7 +844,7 @@ then
   echo "!!! FAIL !!! Download laanwj-releases.asc not success."
   exit 1
 fi
-gpg ./laanwj-releases.asc
+gpg --import --import-options show-only ./laanwj-releases.asc
 fingerprint=$(gpg ./laanwj-releases.asc 2>/dev/null | grep "${laanwjPGP}" -c)
 if [ ${fingerprint} -lt 1 ]; then
   echo ""
@@ -546,32 +890,32 @@ echo ""
 echo "*** BITCOIN v${bitcoinVersion} for ${bitcoinOSversion} ***"
 
 # download resources
-downloadOK=0
 binaryName="bitcoin-${bitcoinVersion}-${bitcoinOSversion}.tar.gz"
 if [ ! -f "./${binaryName}" ]; then
    sudo -u admin wget https://bitcoin.org/bin/bitcoin-core-${bitcoinVersion}/${binaryName}
 fi
 if [ ! -f "./${binaryName}" ]; then
    echo "!!! FAIL !!! Download BITCOIN BINARY not success."
+   exit 1
 else
-   # check binary checksum test
-   binaryChecksum=$(sha256sum ${binaryName} | cut -d " " -f1)
-   if [ "${binaryChecksum}" != "${bitcoinSHA256}" ]; then
-      echo "!!! FAIL !!! Downloaded BITCOIN BINARY not matching SHA256 checksum: ${bitcoinSHA256}"
-      rm -v ./${binaryName}
-   else
-      downloadOK=1
-   fi
-fi
-if [ downloadOK == 0 ]; then
+  # check binary checksum test
+  echo "- checksum test"
+  binaryChecksum=$(sha256sum ${binaryName} | cut -d " " -f1)
+  echo "Valid SHA256 checksum should be: ${bitcoinSHA256}"
+  echo "Downloaded binary SHA256 checksum: ${binaryChecksum}"
+  if [ "${binaryChecksum}" != "${bitcoinSHA256}" ]; then
+    echo "!!! FAIL !!! Downloaded BITCOIN BINARY not matching SHA256 checksum: ${bitcoinSHA256}"
+    rm -v ./${binaryName}
     exit 1
+  else
+    echo ""
+    echo "****************************************"
+    echo "OK --> VERIFIED BITCOIN CHECKSUM CORRECT"
+    echo "****************************************"
+    sleep 10
+    echo ""
+  fi
 fi
-
-echo ""
-echo "****************************************"
-echo "OK --> VERIFIED BITCOIN CHECKSUM CORRECT"
-echo "****************************************"
-echo ""
 
 # install
 sudo -u admin tar -xvf ${binaryName}
@@ -583,19 +927,26 @@ if [ ${installed} -lt 1 ]; then
   echo "!!! BUILD FAILED --> Was not able to install bitcoind version(${bitcoinVersion})"
   exit 1
 fi
+echo "- Bitcoin install OK"
+
+echo ""
+echo "*** PREPARING LIGHTNING ***"
 
 # "*** LND ***"
 ## based on https://github.com/Stadicus/guides/blob/master/raspibolt/raspibolt_40_lnd.md#lightning-lnd
 ## see LND releases: https://github.com/lightningnetwork/lnd/releases
-lndVersion="0.11.1-beta"
+lndVersion="0.12.1-beta"
 
 # olaoluwa
+#PGPauthor="roasbeef"
 #PGPpkeys="https://keybase.io/roasbeef/pgp_keys.asc"
 #PGPcheck="9769140D255C759B1EB77B46A96387A57CAAE94D"
 # bitconner
+PGPauthor="bitconner"
 PGPpkeys="https://keybase.io/bitconner/pgp_keys.asc"
 PGPcheck="9C8D61868A7C492003B2744EE7D737B67FA592C7"
 # Joost Jager
+#PGPauthor="joostjager"
 #PGPpkeys="https://keybase.io/joostjager/pgp_keys.asc"
 #PGPcheck="D146D0F68939436268FA9A130E26BB61B76C4D3A"
 
@@ -606,9 +957,9 @@ cd /home/admin/download
 sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-v${lndVersion}.txt
 
 # check if checksums are signed by lnd dev team
-sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-v${lndVersion}.txt.sig
+sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/manifest-${PGPauthor}-v${lndVersion}.sig
 sudo -u admin wget --no-check-certificate -N -O "pgp_keys.asc" ${PGPpkeys}
-gpg ./pgp_keys.asc
+gpg --import --import-options show-only ./pgp_keys.asc
 fingerprint=$(sudo gpg "pgp_keys.asc" 2>/dev/null | grep "${PGPcheck}" -c)
 if [ ${fingerprint} -lt 1 ]; then
   echo ""
@@ -619,10 +970,10 @@ if [ ${fingerprint} -lt 1 ]; then
 fi
 gpg --import ./pgp_keys.asc
 sleep 3
-verifyResult=$(gpg --verify manifest-v${lndVersion}.txt.sig 2>&1)
+verifyResult=$(gpg --verify manifest-${PGPauthor}-v${lndVersion}.sig manifest-v${lndVersion}.txt 2>&1)
 goodSignature=$(echo ${verifyResult} | grep 'Good signature' -c)
 echo "goodSignature(${goodSignature})"
-correctKey=$(echo ${verifyResult} | tr -d " \t\n\r" | grep "${GPGcheck}" -c)
+correctKey=$(echo ${verifyResult} | tr -d " \t\n\r" | grep "${PGPcheck}" -c)
 echo "correctKey(${correctKey})"
 if [ ${correctKey} -lt 1 ] || [ ${goodSignature} -lt 1 ]; then
   echo ""
@@ -658,13 +1009,22 @@ echo ""
 # get LND binary
 binaryName="lnd-linux-${lndOSversion}-v${lndVersion}.tar.gz"
 if [ ! -f "./${binaryName}" ]; then
-   sudo -u admin wget -N https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/${binaryName}
+  lndDownloadUrl="https://github.com/lightningnetwork/lnd/releases/download/v${lndVersion}/${binaryName}"
+  echo "- downloading lnd binary --> ${lndDownloadUrl}"
+  sudo -u admin wget ${lndDownloadUrl}
+  echo "- download done"
+else
+  echo "- using existing lnd binary"
 fi
 
 # check binary was not manipulated (checksum test)
+echo "- checksum test"
 binaryChecksum=$(sha256sum ${binaryName} | cut -d " " -f1)
-if [ "${binaryChecksum}" != "${lndSHA256}" ]; then
-  echo "!!! FAIL !!! Downloaded LND BINARY not matching SHA256 checksum: ${lndSHA256}"
+echo "Valid SHA256 checksum(s) should be: ${lndSHA256}"
+echo "Downloaded binary SHA256 checksum: ${binaryChecksum}"
+checksumCorrect=$(echo "${lndSHA256}" | grep -c "${binaryChecksum}")
+if [ "${checksumCorrect}" != "1" ]; then
+  echo "!!! FAIL !!! Downloaded LND BINARY not matching SHA256 checksum in manifest: ${lndSHA256}"
   rm -v ./${binaryName}
   exit 1
 else
@@ -673,9 +1033,11 @@ else
   echo "OK --> VERIFIED LND CHECKSUM IS CORRECT"
   echo "****************************************"
   echo ""
+  sleep 10
 fi
 
 # install
+echo "- install LND binary"
 sudo -u admin tar -xzf ${binaryName}
 sudo install -m 0755 -o root -g root -t /usr/local/bin lnd-linux-${lndOSversion}-v${lndVersion}/*
 sleep 3
@@ -685,281 +1047,38 @@ if [ ${#installed} -eq 0 ]; then
   echo "!!! BUILD FAILED --> Was not able to install LND"
   exit 1
 fi
-sudo chown -R admin /home/admin
 
-echo "*** Python DEFAULT libs & dependencies ***"
-
-# for setup schell scripts
-sudo apt -y install dialog bc python3-dialog
-
-# libs (for global python scripts)
-sudo -H python3 -m pip install grpcio==1.29.0
-sudo -H python3 -m pip install googleapis-common-protos==1.51.0
-sudo -H python3 -m pip install toml==0.10.1
-sudo -H python3 -m pip install j2cli==0.3.10
-sudo -H python3 -m pip install requests[socks]==2.21.0
-
-echo ""
-echo "*** RASPIBLITZ EXTRAS ***"
-
-# for background processes
-sudo apt -y install screen
-
-# for multiple (detachable/background) sessions when using SSH
-# https://github.com/rootzoll/raspiblitz/issues/990
-sudo apt -y install tmux
-
-# optimization for torrent download
-sudo bash -c "echo 'net.core.rmem_max = 4194304' >> /etc/sysctl.conf"
-sudo bash -c "echo 'net.core.wmem_max = 1048576' >> /etc/sysctl.conf"
-
-# install a command-line fuzzy finder (https://github.com/junegunn/fzf)
-sudo apt -y install fzf
-
-sudo bash -c "echo '' >> /home/admin/.bashrc"
-sudo bash -c "echo '# https://github.com/rootzoll/raspiblitz/issues/1784' >> /home/admin/.bashrc"
-sudo bash -c "echo 'NG_CLI_ANALYTICS=ci' >> /home/admin/.bashrc"
-
-sudo bash -c "echo '' >> /home/admin/.bashrc"
-sudo bash -c "echo '# Raspiblitz' >> /home/admin/.bashrc"
-
-homeFile=/home/admin/.bashrc
-keyBindings="source /usr/share/doc/fzf/examples/key-bindings.bash"
-keyBindingsDone=$(cat $homeFile|grep -c "$keyBindings")
-
-if [ ${keyBindingsDone} -eq 0 ]; then
-   sudo bash -c "echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/admin/.bashrc"
-   echo "key-bindings added to $homeFile"
-else
-   echo "key-bindings already in $homeFile"
-fi
-
-# *** SHELL SCRIPTS AND ASSETS
-
-# move files from gitclone
-cd /home/admin/
-sudo -u admin rm -rf /home/admin/raspiblitz
-sudo -u admin git clone -b ${wantedBranch} https://github.com/${githubUser}/raspiblitz.git
-sudo -u admin cp -r /home/admin/raspiblitz/home.admin/*.* /home/admin
-sudo -u admin cp -r /home/admin/raspiblitz/home.admin/.tmux.conf /home/admin
-sudo -u admin chmod +x *.sh
-sudo -u admin cp -r /home/admin/raspiblitz/home.admin/assets /home/admin/
-sudo -u admin cp -r /home/admin/raspiblitz/home.admin/config.scripts /home/admin/
-sudo -u admin chmod +x /home/admin/config.scripts/*.sh
-
-# install newest version of BlitzPy
-blitzpy_wheel=$(ls -trR /home/admin/raspiblitz/home.admin/BlitzPy/dist | grep -E "*any.whl" | tail -n 1)
-blitzpy_version=$(echo ${blitzpy_wheel} | grep -oE "([0-9]\.[0-9]\.[0-9])")
-echo ""
-echo "*** INSTALLING BlitzPy Version: ${blitzpy_version} ***"
-sudo -H /usr/bin/python -m pip install "/home/admin/raspiblitz/home.admin/BlitzPy/dist/${blitzpy_wheel}" >/dev/null 2>&1 
-
-# make sure lndlibs are patched for compatibility for both Python2 and Python3
-if ! grep -Fxq "from __future__ import absolute_import" /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py; then
-  sed -i -E '1 a from __future__ import absolute_import' /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py
-fi
-
-if ! grep -Eq "^from . import.*" /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py; then
-  sed -i -E 's/^(import.*_pb2)/from . \1/' /home/admin/config.scripts/lndlibs/rpc_pb2_grpc.py
-fi
-
-# add /sbin to path for all
-sudo bash -c "echo 'PATH=\$PATH:/sbin' >> /etc/profile"
-
-homeFile=/home/admin/.bashrc
-autostart="automatically start main menu"
-autostartDone=$(cat $homeFile|grep -c "$autostart")
-
-if [ ${autostartDone} -eq 0 ]; then
-   # bash autostart for admin
-   sudo bash -c "echo '# shortcut commands' >> /home/admin/.bashrc"
-   sudo bash -c "echo 'source /home/admin/_commands.sh' >> /home/admin/.bashrc"
-   sudo bash -c "echo '# automatically start main menu for admin unless' >> /home/admin/.bashrc"
-   sudo bash -c "echo '# when running in a tmux session' >> /home/admin/.bashrc"
-   sudo bash -c "echo 'if [ -z \"\$TMUX\" ]; then' >> /home/admin/.bashrc"
-   sudo bash -c "echo '    ./00raspiblitz.sh' >> /home/admin/.bashrc"
-   sudo bash -c "echo 'fi' >> /home/admin/.bashrc"
-   echo "autostart added to $homeFile"
-else
-   echo "autostart already in $homeFile"
-fi
- 
-if [ "${lcdInstalled}" == "true" ]; then
-   if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "armbian" ] || [ "${baseImage}" = "ubuntu" ]; then
-
-     homeFile=/home/pi/.bashrc
-     autostart="automatic start the LCD"
-     autostartDone=$(cat $homeFile|grep -c "$autostart")
-
-     if [ ${autostartDone} -eq 0 ]; then
-        # bash autostart for pi
-        # run as exec to dont allow easy physical access by keyboard
-        # see https://github.com/rootzoll/raspiblitz/issues/54
-        sudo bash -c 'echo "# automatic start the LCD info loop" >> /home/pi/.bashrc'
-        sudo bash -c 'echo "SCRIPT=/home/admin/00infoLCD.sh" >> /home/pi/.bashrc'
-        sudo bash -c 'echo "# replace shell with script => logout when exiting script" >> /home/pi/.bashrc'
-        sudo bash -c 'echo "exec \$SCRIPT" >> /home/pi/.bashrc'
-        echo "autostart LCD added to $homeFile"
-     else
-        echo "autostart LCD already in $homeFile"
-     fi
-   fi
-
-   if [ "${baseImage}" = "dietpi" ]; then
-
-     homeFile=/home/dietpi/.bashrc
-     startLCD="automatic start the LCD"
-     autostartDone=$(cat $homeFile|grep -c "$startLCD")
-
-     if [ ${autostartDone} -eq 0 ]; then
-        # bash autostart for dietpi
-        sudo bash -c 'echo "# automatic start the LCD info loop" >> /home/dietpi/.bashrc'
-        sudo bash -c 'echo "SCRIPT=/home/admin/00infoLCD.sh" >> /home/dietpi/.bashrc'
-        sudo bash -c 'echo "# replace shell with script => logout when exiting script" >> /home/dietpi/.bashrc'
-        sudo bash -c 'echo "exec \$SCRIPT" >> /home/dietpi/.bashrc'
-        echo "autostart LCD added to $homeFile"
-     else
-        echo "autostart LCD already in $homeFile"
-     fi
-   fi
-fi
-
-echo ""
-echo "*** HARDENING ***"
-# based on https://stadicus.github.io/RaspiBolt/raspibolt_21_security.html
-
-# fail2ban (no config required)
-sudo apt install -y --no-install-recommends python3-systemd fail2ban 
-
-if [ "${baseImage}" = "raspbian" ]; then
-  if [ "${disableWifi}" == "true" ]; then
-     echo ""
-     echo "*** DISABLE WIFI ***"
-     sudo systemctl disable wpa_supplicant.service
-     sudo ifconfig wlan0 down
-  fi
-
+correctVersion=$(sudo -u admin lnd --version | grep -c "${lndVersion}")
+if [ ${correctVersion} -eq 0 ]; then
   echo ""
-  echo "*** DISABLE BLUETOOTH ***"
-
-  configFile="/boot/config.txt"
-  disableBT="dtoverlay=disable-bt"
-  disableBTDone=$(cat $configFile|grep -c "$disableBT")
-
-  if [ ${disableBTDone} -eq 0 ]; then
-    # disable bluetooth module
-    sudo echo "" >> $configFile
-    sudo echo "# Raspiblitz" >> $configFile
-    echo 'dtoverlay=pi3-disable-bt' | sudo tee -a $configFile
-    echo 'dtoverlay=disable-bt' | sudo tee -a $configFile
-  else
-    echo "disable BT already in $configFile"
-  fi
-
-  # remove bluetooth services
-  sudo systemctl disable bluetooth.service
-  sudo systemctl disable hciuart.service
-
-  # remove bluetooth packages
-  sudo apt remove -y --purge pi-bluetooth bluez bluez-firmware
+  echo "!!! BUILD FAILED --> installed LND is not version ${lndVersion}"
+  sudo -u admin lnd --version
+  exit 1
 fi
+sudo chown -R admin /home/admin
+echo "- OK install of LND done"
 
-# *** CACHE DISK IN RAM ***
-echo "Activating CACHE RAM DISK ... "
-sudo /home/admin/config.scripts/blitz.cache.sh on
-
-# *** BOOTSTRAP ***
-# see background README for details
 echo ""
-echo "*** RASPI BOOTSTRAP SERVICE ***"
-sudo chmod +x /home/admin/_bootstrap.sh
-sudo cp ./assets/bootstrap.service /etc/systemd/system/bootstrap.service
-sudo systemctl enable bootstrap
+echo "*** raspiblitz.info ***"
+sudo cat /home/admin/raspiblitz.info
 
-# *** BACKGROUND ***
-echo ""
-echo "*** RASPI BACKGROUND SERVICE ***"
-sudo chmod +x /home/admin/_background.sh
-sudo cp ./assets/background.service /etc/systemd/system/background.service
-sudo systemctl enable background
-
-# *** TOR Prepare ***
-echo "*** Prepare TOR source+keys ***"
-sudo /home/admin/config.scripts/internet.tor.sh prepare
-echo ""
-
-# *** RASPIBLITZ LCD DRIVER (do last - because makes a reboot) ***
-# based on https://www.elegoo.com/tutorial/Elegoo%203.5%20inch%20Touch%20Screen%20User%20Manual%20V1.00.2017.10.09.zip
-if [ "${lcdInstalled}" == "true" ]; then
-   if [ "${baseImage}" = "raspbian" ] || [ "${baseImage}" = "dietpi" ]; then
-     echo "*** LCD DRIVER ***"
-     echo "--> Downloading LCD Driver from Github"
-     cd /home/admin/
-     sudo -u admin git clone https://github.com/MrYacha/LCD-show.git
-     sudo -u admin chmod -R 755 LCD-show
-     sudo -u admin chown -R admin:admin LCD-show
-     cd LCD-show/
-     sudo -u admin git reset --hard 53dd0bf
-
-     # install xinput calibrator package
-     echo "--> install xinput calibrator package"
-     sudo apt install -y libxi6
-     sudo dpkg -i xinput-calibrator_0.7.5-1_armhf.deb
-   fi
-
-   # make dietpi preparations
-   if [ "${baseImage}" = "dietpi" ]; then
-     echo "--> dietpi preparations"
-     sudo rm -rf /etc/X11/xorg.conf.d/40-libinput.conf
-     sudo mkdir /etc/X11/xorg.conf.d
-     sudo cp ./usr/tft35a-overlay.dtb /boot/overlays/
-     sudo cp ./usr/tft35a-overlay.dtb /boot/overlays/tft35a.dtbo
-     sudo cp -rf ./usr/99-calibration.conf-35  /etc/X11/xorg.conf.d/99-calibration.conf
-     sudo cp -rf ./usr/99-fbturbo.conf  /usr/share/X11/xorg.conf.d/
-     sudo cp ./usr/cmdline.txt /DietPi/
-     sudo cp ./usr/inittab /etc/
-     sudo cp ./boot/config-35.txt /DietPi/config.txt
-     # make LCD screen rotation correct
-     sudo sed -i "s/dtoverlay=tft35a/dtoverlay=tft35a:rotate=270/" /DietPi/config.txt
-   fi
-fi
-
-# *** RASPIBLITZ IMAGE READY ***
+# *** RASPIBLITZ IMAGE READY INFO ***
 echo ""
 echo "**********************************************"
-echo "SD CARD BUILD DONE"
+echo "BASIC SD CARD BUILD DONE"
 echo "**********************************************"
 echo ""
-
-if [ "${lcdInstalled}" == "true" ]; then
-   echo "Your SD Card Image for RaspiBlitz is almost ready."
-   if [ "${baseImage}" = "raspbian" ]; then
-      echo "Last step is to install LCD drivers. This will reboot your Pi when done."
-      echo ""
-   fi
-else
-   echo "Your SD Card Image for RaspiBlitz is ready."
-fi
-echo "Take the chance & look thru the output above if you can spot any errror."
+echo "Your SD Card Image for RaspiBlitz is ready (might still do display config)."
+echo "Take the chance & look thru the output above if you can spot any errors or warnings."
 echo ""
-if [ "${lcdInstalled}" == "true" ]; then
-   echo "After final reboot - your SD Card Image is ready."
-   echo ""
-fi
 echo "IMPORTANT IF WANT TO MAKE A RELEASE IMAGE FROM THIS BUILD:"
-echo "login once after reboot without external HDD/SSD and run 'XXprepareRelease.sh'"
-echo "REMEMBER for login now use --> user:admin password:raspiblitz"
+echo "1. login fresh --> user:admin password:raspiblitz"
+echo "2. run --> ./XXprepareRelease.sh"
 echo ""
 
-if [ "${lcdInstalled}" == "true" ]; then
-   # activate LCD and trigger reboot
-   # dont do this on dietpi to allow for automatic build
-   if [ "${baseImage}" = "raspbian" ]; then
-      sudo chmod +x -R /home/admin/LCD-show
-      cd /home/admin/LCD-show/
-      sudo apt-mark hold raspberrypi-bootloader
-      sudo ./LCD35-show
-   else
-     echo "Use 'sudo reboot' to restart manually."
-   fi
+# (do last - because might trigger reboot)
+if [ "${displayClass}" != "headless" ] || [ "${baseimage}" = "raspbian" ] || [ "${baseimage}" = "raspios_arm64" ]; then
+  echo "*** ADDITIONAL DISPLAY OPTIONS ***"
+  echo "- calling: blitz.display.sh set-display ${displayClass}"
+  sudo /home/admin/config.scripts/blitz.display.sh set-display ${displayClass}
 fi

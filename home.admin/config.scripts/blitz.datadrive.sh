@@ -227,12 +227,12 @@ if [ "$1" = "status" ]; then
         if [ ${isTempMounted} -eq 0 ]; then
           echo "hddError='storage mount failed'"
         else
+
           # check for blockchain data on storage
           hddBlocksBitcoin=$(sudo ls /mnt/storage${subVolumeDir}/bitcoin/blocks/blk00000.dat 2>/dev/null | grep -c '.dat')
           echo "hddBlocksBitcoin=${hddBlocksBitcoin}"
           hddBlocksLitecoin=$(sudo ls /mnt/storage${subVolumeDir}/litecoin/blocks/blk00000.dat 2>/dev/null | grep -c '.dat')
           echo "hddBlocksLitecoin=${hddBlocksLitecoin}"
-          sudo umount /mnt/storage
           if [ "${blockchainType}" = "bitcoin" ] && [ ${hddBlocksBitcoin} -eq 1 ]; then
             echo "hddGotBlockchain=1"
           elif [ "${blockchainType}" = "litecoin" ] && [ ${hddBlocksLitecoin} -eq 1 ]; then
@@ -240,6 +240,36 @@ if [ "$1" = "status" ]; then
           elif [ ${#blockchainType} -gt 0 ]; then
             echo "hddGotBlockchain=0"
           fi
+
+          # check free space on data drive
+          if [ ${isBTRFS} -eq 0 ]; then
+            # EXT4
+            hdd_data_free1Kblocks=$(df -h -k /dev/${hddDataPartitionExt4} | grep "/dev/${hddDataPartitionExt4}" | sed -e's/  */ /g' | cut -d" " -f 4 | tr -dc '0-9')
+          else
+            # BRTS
+            hdd_data_free1Kblocks=$(df -h -k /dev/${hdd}1 | grep "/dev/${hdd}1" | sed -e's/  */ /g' | cut -d" " -f 4 | tr -dc '0-9')
+          fi
+          echo "hddDataFreeKB=${hdd_data_free1Kblocks}"
+
+          # check if its another fullnode implementation data disk
+          hddGotMigrationData="none"
+          if [ "${hddFormat}" = "ext4" ]; then
+            # check for umbrel
+            isUmbrelHDD=$(sudo ls /mnt/storage/umbrel/info.json 2>/dev/null | grep -c '.json')
+            if [ ${isUmbrelHDD} -gt 0 ]; then
+              hddGotMigrationData="umbrel"
+            fi
+            isMyNodeHDD=$(sudo ls /mnt/storage/mynode/bitcoin/bitcoin.conf 2>/dev/null | grep -c '.conf')
+            if [ ${isMyNodeHDD} -gt 0 ]; then
+              hddGotMigrationData="mynode"
+            fi
+          else
+            echo "# not an ext4 drive - all known fullnode packages use ext4 at the moment"
+          fi
+          echo "hddGotMigrationData='${hddGotMigrationData}'"
+
+          # unmount 
+          sudo umount /mnt/storage
         fi
       else
         # if not ext4 or btrfs - there is no usable data
@@ -299,6 +329,7 @@ if [ "$1" = "status" ]; then
       # EXT4 calculations
       hdd_used_space=$(df -h | grep "/dev/${hddDataPartitionExt4}" | sed -e's/  */ /g' | cut -d" " -f 3  2>/dev/null)
       hdd_used_ratio=$(df -h | grep "/dev/${hddDataPartitionExt4}" | sed -e's/  */ /g' | cut -d" " -f 5 | tr -dc '0-9' 2>/dev/null)
+      hdd_data_free1Kblocks=$(df -h -k /dev/${hddDataPartitionExt4} | grep "/dev/${hddDataPartitionExt4}" | sed -e's/  */ /g' | cut -d" " -f 4 | tr -dc '0-9')
       hddUsedInfo="${hdd_used_space} (${hdd_used_ratio}%)"
     else
       # BRTS calculations
@@ -306,10 +337,38 @@ if [ "$1" = "status" ]; then
       # https://askubuntu.com/questions/170044/btrfs-and-missing-free-space
       datadrive=$(df -h | grep "/dev/${hdd}1" | sed -e's/  */ /g' | cut -d" " -f 5)
       storageDrive=$(df -h | grep "/dev/${hdd}2" | sed -e's/  */ /g' | cut -d" " -f 5)
+      hdd_data_free1Kblocks=$(df -h -k /dev/${hdd}1 | grep "/dev/${hdd}1" | sed -e's/  */ /g' | cut -d" " -f 4 | tr -dc '0-9')
       hddUsedInfo="${datadrive} & ${storageDrive}"
     fi
     echo "hddUsedInfo='${hddUsedInfo}'"
+    echo "hddDataFreeKB=${hdd_data_free1Kblocks}"
 
+  fi
+
+  # HDD Adpater UASP support --> https://www.pragmaticlinux.com/2021/03/fix-for-getting-your-ssd-working-via-usb-3-on-your-raspberry-pi/
+  if [ ${#hdd} -gt 0 ]; then
+
+    # determine USB HDD adapter model ID 
+    hddAdapter=$(lsusb | grep "SATA" | head -1 | cut -d " " -f6)
+    if [ "${hddAdapter}" == "" ]; then
+      hddAdapter=$(lsusb | grep "GC Protronics" | head -1 | cut -d " " -f6)
+    fi
+    if [ "${hddAdapter}" == "" ]; then
+      hddAdapter=$(lsusb | grep "ASMedia Technology" | head -1 | cut -d " " -f6)
+    fi
+    echo "hddAdapterUSB='${hddAdapter}'"
+
+    # check if HDD ADAPTER is on UASP WHITELIST (tested devices)
+    hddAdapterUSAP=0
+    if [ "${hddAdapter}" == "174c:55aa" ]; then
+      # UGREEN 2.5" External USB 3.0 Hard Disk Case with UASP support
+      hddAdapterUSAP=1
+    fi
+    if [ "${hddAdapter}" == "0825:0001" ] || [ "${hddAdapter}" == "174c:0825" ]; then
+      # SupTronics 2.5" SATA HDD Shield X825 v1.5
+      hddAdapterUSAP=1
+    fi
+    echo "hddAdapterUSAP=${hddAdapterUSAP}"
   fi
 
   echo
@@ -497,23 +556,23 @@ if [ "$1" = "format" ]; then
         sudo parted /dev/${hdd} mkpart primary ext4 0% 100% 1>&2
         sleep 6
         sync
-        # loop until the partion gets available
+        # loop until the partition gets available
         loopdone=0
         loopcount=0
         while [ ${loopdone} -eq 0 ]
         do
-          >&2 echo "# waiting until the partion gets available"
+          >&2 echo "# waiting until the partition gets available"
           sleep 2
           sync
           loopdone=$(lsblk -o NAME | grep -c ${hdd}1)
           loopcount=$(($loopcount +1))
           if [ ${loopcount} -gt 10 ]; then
-            >&2 echo "# partion failed"
+            >&2 echo "# partition failed"
             echo "error='partition failed'"
             exit 1
           fi
         done
-        >&2 echo "# partion available"
+        >&2 echo "# partition available"
      fi
 
      # make sure /mnt/hdd is unmounted before formatting
@@ -1114,7 +1173,7 @@ fi
 ###################
 
 if [ "$1" = "tempmount" ]; then
-  
+
   if [ ${isMounted} -eq 1 ]; then
     echo "error='already mounted'"
     exit 1
@@ -1147,7 +1206,13 @@ if [ "$1" = "tempmount" ]; then
 
   if [ "${hddFormat}" = "ext4" ]; then
 
+    if [ "${hddDataPartitionExt4}" == "" ]; then
+      echo "error='parameter is no partition'"
+      exit 1
+    fi
+
     # do EXT4 temp mount
+    echo "# temp mount /dev/${hddDataPartitionExt4} --> /mnt/hdd"
     sudo mkdir -p /mnt/hdd 1>/dev/null
     sudo mount /dev/${hddDataPartitionExt4} /mnt/hdd
 

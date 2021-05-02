@@ -7,40 +7,6 @@ if [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
   exit 1
 fi
 
-# interactive choose type of action
-if [ "$1" = "" ] || [ $# -eq 0 ]; then
-    OPTIONS=()
-    OPTIONS+=(RESET "Recreate Macaroons + TLS")
-    OPTIONS+=(SYNC "Sync with RaspiBlitz Apps/Users")
-    OPTIONS+=(EXPORT "Get Macaroons and TLS.cert")
-    CHOICE=$(dialog --clear \
-                --backtitle "RaspiBlitz" \
-                --title "Manage LND credentials" \
-                --menu "Choose action" \
-                11 50 7 \
-                "${OPTIONS[@]}" \
-                2>&1 >/dev/tty)
-    clear
-    case $CHOICE in
-        RESET)
-          sudo /home/admin/config.scripts/lnd.credentials.sh reset
-          echo "Press ENTER to return to main menu."
-          read key
-          exit 0
-          ;;
-        SYNC)
-          sudo /home/admin/config.scripts/lnd.credentials.sh sync
-          echo "Press ENTER to return to main menu."
-          read key
-          exit 0
-          ;;
-        EXPORT)
-          sudo /home/admin/config.scripts/lnd.export.sh
-          exit 0
-          ;;
-    esac
-fi
-
 # load data from config
 source /mnt/hdd/raspiblitz.conf
 
@@ -113,7 +79,7 @@ if [ "$1" = "reset" ]; then
     cd || exit
     sudo find /mnt/hdd/app-data/lnd/data/chain/"${network}"/"${chain}"net/ -iname '*.macaroon' -delete
     sudo find /home/bitcoin/.lnd/data/chain/"${network}"/"${chain}"net/ -iname '*.macaroon' -delete
-    if [ ${keepOldMacaroons} -eq 0 ]; then
+    if [ "${keepOldMacaroons}" != "1" ]; then
       sudo rm /home/bitcoin/.lnd/data/chain/"${network}"/"${chain}"net/macaroons.db
     fi
   fi
@@ -141,6 +107,8 @@ if [ "$1" = "reset" ]; then
     copy_mac_set_perms readonly.macaroon lndreadonly "${network}" "${chain}"
     echo "# OK DONE"
   fi
+
+  /home/admin/config.scripts/lnd.credentials.sh sync
 
 ###########################
 # SYNC
@@ -176,14 +144,6 @@ elif [ "$1" = "sync" ]; then
   if ! [[ -L "/home/admin/.lnd" ]]; then
     sudo rm -rf "/home/admin/.lnd"                # not a symlink.. delete it silently
     ln -s /mnt/hdd/app-data/lnd/ /home/admin/.lnd # and create symlink
-  fi
-
-  echo "# make sure network (bitcoin/litecoin) RPC password is set correctly in lnd.conf"
-  source <(sudo cat /mnt/hdd/"${network}"/"${network}".conf 2>/dev/null | grep "rpcpass" | sed 's/^[a-z]*\./lnd/g')
-  if [ "${#rpcpassword}" -gt 0 ]; then
-    sudo sed -i 's/^"${network}"d.rpcpass=.*/"${network}"d.rpcpass="${rpcpassword}"/g' /mnt/hdd/lnd/lnd.conf 2>/dev/null
-  else
-    echo "# WARN: could not get value 'rpcpass' from network config (e.g. bitcoin.conf)"
   fi
 
   echo "# make sure LND conf is readable and symlinked"

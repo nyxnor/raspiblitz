@@ -36,10 +36,9 @@ fi
 # see: https://github.com/rootzoll/raspiblitz/issues/936
 echo "CHECK IF SD CARD NEEDS EXPANSION" >> ${logFile}
 source ${infoFile}
-isRaspbian=$(echo $baseimage | grep -c 'raspbian')
-isArmbian=$(echo $baseimage | grep -c 'armbian')
-resizeRaspbian="/usr/bin/raspi-config"
-resizeArmbian="/usr/lib/armbian/armbian-resize-filesystem"
+
+# remember the DisplayClass from info file - before its gets overwritten by raspiblitz.conf to detect change
+infoFileDisplayClass="${displayClass}"
 
 minimumSizeByte=8192000000
 rootPartition=$(sudo mount | grep " / " | cut -d " " -f 1 | cut -d "/" -f 3)
@@ -55,37 +54,48 @@ if [ ${#rootPartition} -gt 0 ]; then
    if [ $rootPartitionBytes -lt $minimumSizeByte ]; then
       echo "Disk filesystem is smaller than ${minimumSizeByte} byte." >> ${logFile}
       if [ ${fsexpanded} -eq 1 ]; then
-         echo "There was already an attempt to expand the fs, but still not bigger than 8GB." >> ${logFile}
-         echo "SD card seems to small - at least a 16GB disk is needed. Display on LCD to user." >> ${logFile}
-         sudo sed -i "s/^state=.*/state=sdtoosmall/g" ${infoFile}
-         sudo sed -i "s/^message=.*/message='Min 16GB SD card needed'/g" ${infoFile}
-         exit 1
+        echo "There was already an attempt to expand the fs, but still not bigger than 8GB." >> ${logFile}
+        echo "SD card seems to small - at least a 16GB disk is needed. Display on LCD to user." >> ${logFile}
+        sudo sed -i "s/^state=.*/state=sdtoosmall/g" ${infoFile}
+        sudo sed -i "s/^message=.*/message='Min 16GB SD card needed'/g" ${infoFile}
+        exit 1
       else
-         echo "Try to expand SD card FS, display info and reboot." >> ${logFile}
-         sudo sed -i "s/^state=.*/state=reboot/g" ${infoFile}
-         sudo sed -i "s/^message=.*/message='Expanding SD Card'/g" ${infoFile}
-         sudo sed -i "s/^fsexpanded=.*/fsexpanded=1/g" ${infoFile}
-         if [ "${cpu}" == "x86_64"  ]; then
+        echo "Try to expand SD card FS, display info and reboot." >> ${logFile}
+        sudo sed -i "s/^state=.*/state=reboot/g" ${infoFile}
+        sudo sed -i "s/^message=.*/message='Expanding SD Card'/g" ${infoFile}
+        sudo sed -i "s/^fsexpanded=.*/fsexpanded=1/g" ${infoFile}
+        sleep 4
+        if [ "${cpu}" == "x86_64"  ]; then
             echo "Please expand disk size." >> ${logFile}
 	          # TODO: Expand disk size on x86_64
-         elif [ ${isRaspbian} -gt 0 ]; then
+        elif [ "${baseimage}" = "raspbian" ] || [ "${baseimage}" = "raspios_arm64" ]; then
+            resizeRaspbian="/usr/bin/raspi-config"
             if [ -x ${resizeRaspbian} ]; then
-              echo "RUNNING EXPAND: ${resizeRaspbian}" >> ${logFile}
+              echo "RUNNING EXPAND RASPBERRYPI: ${resizeRaspbian}" >> ${logFile}
 		          sudo $resizeRaspbian --expand-rootfs
+              echo "going into reboot" >> ${logFile}
+              sudo cp ${logFile} ${logFile}.fsexpand.recover
+              sudo shutdown -r now
+	            exit 0
 	          else
               echo "FAIL to execute: ${resizeRaspbian}" >> ${logFile}
             fi
-         elif [ ${isArmbian} -gt 0 ]; then
+        elif [ "${baseimage}" = "armbian" ]; then
+            resizeArmbian="/usr/lib/armbian/armbian-resize-filesystem"
             if [ -x ${resizeArmbian} ]; then
-              echo "RUNNING EXPAND: ${resizeArmbian}" >> ${logFile}
+              echo "RUNNING EXPAND ARMBIAN: ${resizeArmbian}" >> ${logFile}
               sudo $resizeArmbian start
+              echo "going into reboot" >> ${logFile}
+              sudo cp ${logFile} ${logFile}.fsexpand.recover
+              sudo shutdown -r now
+              sleep 100
+	            exit 0
 	          else
               echo "FAIL to execute: ${resizeArmbian}" >> ${logFile}
             fi
-         fi
-         sleep 6
-         sudo shutdown -r now
-	 exit 0
+        else
+          echo "WARN on provision - Not known system expand-rootfs OS: ${baseimage}" >> ${logFile}
+        fi
       fi
    else
       echo "Size looks good. Bigger than ${minimumSizeByte} byte disk is used." >> ${logFile}
@@ -98,18 +108,58 @@ fi
 sudo chmod 777 ${configFile}
 source ${configFile}
 
-# check if the system was configured for HDMI and needs switch
-# keep as one of the first so that user can see video output
+##########################
+# DISPLAY SETTINGS
+##########################
+
+# check if the raspiblitz config has a different display mode than the build image
+echo "### DISPLAY SETTINGS ###" >> ${logFile}
+
+# OLD: when nothing is set in raspiblitz.conf (<1.7)
+existsDisplayClass=$(sudo cat ${configFile} | grep -c "displayClass=")
+if [ "${existsDisplayClass}" == "0" ]; then
+  displayClass="lcd"
+fi
+
+# OLD: lcd2hdmi (deprecated)
 if [ "${lcd2hdmi}" == "on" ]; then
-  echo "RaspiBlitz has config to run with HDMI video outout." >> ${logFile}
-  # check that raspiblitz.info shows that confing script was not run yet
-  switchScriptNotRunYet=$(sudo cat /home/admin/raspiblitz.info | grep -c "lcd2hdmi=off")
-  if [ ${switchScriptNotRunYet} -eq 1 ]; then
-    echo "--> Switching to HDMI video output & rebooting" >> ${logFile}
-    sudo /home/admin/config.scripts/blitz.lcd.sh hdmi on
+  echo "Convert lcd2hdmi=on to displayClass='hdmi'" >> ${logFile}
+  sudo sed -i "s/^lcd2hdmi=.*//g" ${configFile}
+  echo "displayClass=hdmi" >> ${configFile}
+  displayClass="hdmi"
+elif [ "${lcd2hdmi}" != "" ]; then
+  echo "Remove old lcd2hdmi pramater from config" >> ${logFile}
+  sudo sed -i "s/^lcd2hdmi=.*//g" ${configFile}
+  displayClass="lcd"
+fi
+
+# OLD: headless (deprecated)
+if [ "${headless}" == "on" ]; then
+  echo "Convert headless=on to displayClass='headless'" >> ${logFile}
+  sudo sed -i "s/^headless=.*//g" ${configFile}
+  echo "displayClass=headless" >> ${configFile}
+  displayClass="headless"
+elif [ "${headless}" != "" ]; then
+  echo "Remove old headless pramater from config" >> ${logFile}
+  sudo sed -i "s/^headless=.*//g" ${configFile}
+  displayClass="lcd"
+fi
+
+# NEW: decide by displayClass 
+echo "raspiblitz.info(${infoFileDisplayClass}) raspiblitz.conf(${displayClass})" >> ${logFile}
+if [ "${infoFileDisplayClass}" != "" ] && [ "${displayClass}" != "" ]; then
+  if [ "${infoFileDisplayClass}" != "${displayClass}" ]; then
+    echo "Need to update displayClass from (${infoFileDisplayClass}) to (${displayClass})'" >> ${logFile}
+    sudo /home/admin/config.scripts/blitz.display.sh set-display ${displayClass} >> ${logFile}
+    echo "going into reboot" >> ${logFile}
+    sudo cp ${logFile} ${logFile}.display.recover
+    sudo shutdown -r now
+	  exit 0
   else
-    echo "OK RaspiBlitz was already switched to HDMI output." >> ${logFile}
+    echo "Display Setting is correct ... no need for change" >> ${logFile}
   fi
+else
+  echo "WARN values in raspiblitz info and/or conf file seem broken" >> ${logFile}
 fi
 
 ##########################
@@ -149,11 +199,11 @@ kbSizeRAM=$(cat /proc/meminfo | grep "MemTotal" | sed 's/[^0-9]*//g')
 if [ ${kbSizeRAM} -gt 1500000 ]; then
   echo "Detected RAM >1GB --> optimizing ${network}.conf"
   sudo sed -i "s/^dbcache=.*/dbcache=1024/g" /mnt/hdd/${network}/${network}.conf
-  sudo sed -i "s/^maxmempool=.*/maxmempool=256/g" /mnt/hdd/${network}/${network}.conf
+  sudo sed -i "s/^maxmempool=.*/maxmempool=300/g" /mnt/hdd/${network}/${network}.conf
 fi
 if [ ${kbSizeRAM} -gt 3500000 ]; then
   echo "Detected RAM >3GB --> optimizing ${network}.conf"
-  sudo sed -i "s/^maxmempool=.*/maxmempool=512/g" /mnt/hdd/${network}/${network}.conf
+  sudo sed -i "s/^maxmempool=.*/maxmempool=300/g" /mnt/hdd/${network}/${network}.conf
 fi
 
 # link and copy HDD content into new OS on sd card
@@ -205,6 +255,24 @@ echo "### RUNNING PROVISIONING SERVICES ###" >> ${logFile}
 # BLITZ WEB SERVICE
 echo "Provisioning BLITZ WEB SERVICE - run config script" >> ${logFile}
 /home/admin/config.scripts/blitz.web.sh on >> ${logFile} 2>&1
+
+# BITCOIN INTERIMS UPDATE
+if [ ${#bitcoinInterimsUpdate} -gt 0 ]; then
+  sudo sed -i "s/^message=.*/message='Provisioning Bitcoin Core update'/g" ${infoFile}
+  if [ "${bitcoinInterimsUpdate}" == "reckless" ]; then
+    # recklessly update Bitcoin Core to latest release on GitHub
+    echo "Provisioning BItcoin Core reckless interims update" >> ${logFile}
+    sudo /home/admin/config.scripts/bitcoin.update.sh reckless >> ${logFile}
+  else
+    # when installing the same sd image - this will re-trigger the secure interims update
+    # if this a update with a newer RaspiBlitz version .. interims update will be ignored
+    # because standard Bitcoin Core version is most more up to date
+    echo "Provisioning BItcoin Core tested interims update" >> ${logFile}
+    sudo /home/admin/config.scripts/bitcoin.update.sh tested ${bitcoinInterimsUpdate} >> ${logFile}
+  fi
+else
+  echo "Provisioning Bitcoin Core interims update - keep default" >> ${logFile}
+fi
 
 # LND INTERIMS UPDATE
 if [ ${#lndInterimsUpdate} -gt 0 ]; then
@@ -335,14 +403,15 @@ else
   echo "Provisioning BTCPayServer - keep default" >> ${logFile}
 fi
 
+# deprecated - see: #2031
 # LNDMANAGE
-if [ "${lndmanage}" = "on" ]; then
-  echo "Provisioning lndmanage - run config script" >> ${logFile}
-  sudo sed -i "s/^message=.*/message='Setup lndmanage '/g" ${infoFile}
-  sudo -u admin /home/admin/config.scripts/bonus.lndmanage.sh on >> ${logFile} 2>&1
-else
-  echo "Provisioning lndmanage - not active" >> ${logFile}
-fi
+#if [ "${lndmanage}" = "on" ]; then
+#  echo "Provisioning lndmanage - run config script" >> ${logFile}
+#  sudo sed -i "s/^message=.*/message='Setup lndmanage '/g" ${infoFile}
+#  sudo -u admin /home/admin/config.scripts/bonus.lndmanage.sh on >> ${logFile} 2>&1
+#else
+#  echo "Provisioning lndmanage - not active" >> ${logFile}
+#fi
 
 # CUSTOM PORT
 echo "Provisioning LND Port" >> ${logFile}
@@ -366,6 +435,14 @@ if [ ${#dnsServer} -gt 0 ]; then
     sudo /home/admin/config.scripts/internet.dns.sh ${dnsServer} >> ${logFile} 2>&1
 else
     echo "Provisioning DNS Server - keep default" >> ${logFile}
+fi
+
+# CHANTOOLS
+if [ "${chantools}" == "on" ]; then
+    echo "Provisioning chantools - run config script" >> ${logFile}
+    sudo /home/admin/config.scripts/bonus.chantools.sh on >> ${logFile} 2>&1
+else
+    echo "Provisioning chantools - keep default" >> ${logFile}
 fi
 
 # ROOT SSH KEYS
@@ -404,7 +481,7 @@ if [ "${#lcdrotate}" -eq 0 ]; then
 fi
 echo "Provisioning LCD rotate - run config script" >> ${logFile}
 sudo sed -i "s/^message=.*/message='LCD Rotate'/g" ${infoFile}
-sudo /home/admin/config.scripts/blitz.lcd.sh rotate ${lcdrotate} >> ${logFile} 2>&1
+sudo /home/admin/config.scripts/blitz.display.sh rotate ${lcdrotate} >> ${logFile} 2>&1
 
 # TOUCHSCREEN
 if [ "${#touchscreen}" -gt 0 ]; then
@@ -523,6 +600,15 @@ else
   echo "Provisioning Stacking Sats Kraken - keep default" >> ${logFile}
 fi
 
+# lit (make sure to be installed after RTL)
+if [ "${lit}" = "on" ]; then
+  echo "Provisioning LIT - run config script" >> ${logFile}
+  sudo sed -i "s/^message=.*/message='Setup LIT'/g" ${infoFile}
+  sudo -u admin /home/admin/config.scripts/bonus.lit.sh on >> ${logFile} 2>&1
+else
+  echo "Provisioning LIT - keep default" >> ${logFile}
+fi
+
 # pool
 if [ "${pool}" = "on" ]; then
   echo "Provisioning Pool - run config script" >> ${logFile}
@@ -555,12 +641,12 @@ customInstallAvailable=$(sudo ls /mnt/hdd/app-data/custom-installs.sh 2>/dev/nul
 if [ ${customInstallAvailable} -gt 0 ]; then
   echo "Running the custom install script .." >> ${logFile}
   # copy script over to admin (in case HDD is not allowing exec)
-  sudo cp -av /mnt/hdd/app-data/custom-installs.sh /home/admin/custom-install.sh >> ${logFile}
+  sudo cp -av /mnt/hdd/app-data/custom-installs.sh /home/admin/custom-installs.sh >> ${logFile}
   # make sure script is executable
-  sudo chmod +x /home/admin/custom-install.sh >> ${logFile}
+  sudo chmod +x /home/admin/custom-installs.sh >> ${logFile}
   # run it & delete it again
-  sudo /home/admin/custom-install.sh >> ${logFile}
-  sudo rm /home/admin/custom-install.sh >> ${logFile}
+  sudo /home/admin/custom-installs.sh >> ${logFile}
+  sudo rm /home/admin/custom-installs.sh >> ${logFile}
   echo "Done" >> ${logFile}
 else
   echo "No custom install script ... adding the placeholder." >> ${logFile}
@@ -593,9 +679,6 @@ if [ ${confExists} -eq 0 ]; then
   sudo cp /home/admin/assets/bitcoin.conf /mnt/hdd/bitcoin/bitcoin.conf
   sudo chown bitcoin:bitcoin /mnt/hdd/bitcoin/bitcoin.conf
 fi
-echo "Aligning lnd.conf & ${network}.conf" >> ${logFile}
-rpcpass=$(sudo cat /mnt/hdd/lnd/lnd.conf | grep "${network}d.rpcpass" | cut -d "=" -f2)
-sudo sed -i "s/^rpcpassword=.*/rpcpassword=${rpcpass}/g" /mnt/hdd/bitcoin/bitcoin.conf 2>/dev/null
 
 # singal setup done
 sudo sed -i "s/^message=.*/message='Setup Done'/g" ${infoFile}

@@ -1,7 +1,7 @@
 #!/bin/bash
 # https://github.com/cryptoadvance/specter-desktop  
 
-pinnedVersion="1.0.0"
+pinnedVersion="1.3.0"
 
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
@@ -54,7 +54,7 @@ if [ "$1" = "menu" ]; then
   if [ "${runBehindTor}" = "on" ] && [ ${#toraddress} -gt 0 ]; then
 
     # TOR
-    /home/admin/config.scripts/blitz.lcd.sh qr "${toraddress}"
+    /home/admin/config.scripts/blitz.display.sh qr "${toraddress}"
     whiptail --title " Cryptoadvance Specter " --msgbox "Open in your local web browser & accept self-signed cert:
 https://${localip}:25441
 
@@ -67,7 +67,7 @@ Hidden Service address for TOR Browser (QR see LCD):
 https://${toraddress}
 Unfortunately the camera is currently not usable via Tor, though.
 " 18 74
-    /home/admin/config.scripts/blitz.lcd.sh hide
+    /home/admin/config.scripts/blitz.display.sh hide
   else
 
     # IP + Domain
@@ -317,7 +317,7 @@ EOF
   if [ "${blockfilterindex}" = "0" ]; then
     sudo sed -i "s/^blockfilterindex=.*/blockfilterindex=1/g" /mnt/hdd/${network}/${network}.conf
     echo "# switching blockfilterindex=1"
-    isBitcoinRunning=$(sudo systemctl is-active ${network}d | grep -c "^active")
+    isBitcoinRunning=$(systemctl is-active ${network}d | grep -c "^active")
     if [ ${isBitcoinRunning} -eq 1 ]; then
       echo "# ${network}d is running - so restarting"
       sudo systemctl restart ${network}d

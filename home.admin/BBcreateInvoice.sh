@@ -1,7 +1,7 @@
 #!/bin/bash
 clear
-_temp="./download/dialog.$$"
-_error="./.error.out"
+_temp=$(mktemp -p /dev/shm/)
+_error=$(mktemp -p /dev/shm/)
 sudo chmod 7777 ${_error} 2>/dev/null
 
 # load raspiblitz config data (with backup from old config)
@@ -68,7 +68,7 @@ else
 
   rhash=$(echo "$result" | grep r_hash | cut -d '"' -f4)
   payReq=$(echo "$result" | grep payment_request | cut -d '"' -f4)
-  /home/admin/config.scripts/blitz.lcd.sh qr "${payReq}"
+  /home/admin/config.scripts/blitz.display.sh qr "${payReq}"
 
   if [ $(sudo dpkg-query -l | grep "ii  qrencode" | wc -l) = 0 ]; then
    sudo apt-get install qrencode -y > /dev/null
@@ -99,8 +99,8 @@ else
       echo $result
       echo
       echo "Returning to menu - OK Invoice payed."
-      /home/admin/config.scripts/blitz.lcd.sh hide
-      /home/admin/config.scripts/blitz.lcd.sh image /home/admin/raspiblitz/pictures/ok.png
+      /home/admin/config.scripts/blitz.display.sh hide
+      /home/admin/config.scripts/blitz.display.sh image /home/admin/raspiblitz/pictures/ok.png
       sleep 2
       break
     fi
@@ -119,7 +119,7 @@ else
 
   done
 
-  /home/admin/config.scripts/blitz.lcd.sh hide
+  /home/admin/config.scripts/blitz.display.sh hide
 
 fi
 echo "Press ENTER to return to main menu."

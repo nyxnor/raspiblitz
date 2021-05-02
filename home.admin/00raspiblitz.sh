@@ -1,4 +1,6 @@
 #!/bin/bash
+echo "For debug logs CTRL+C and: tail -n1000 -f raspiblitz.log"
+echo "or call the command 'debug' to see bigger report."
 echo "Starting the main menu ..."
 
 # CONFIGFILE - configuration of RaspiBlitz
@@ -9,14 +11,14 @@ infoFile="/home/admin/raspiblitz.info"
 
 # use blitz.datadrive.sh to analyse HDD situation
 source <(sudo /home/admin/config.scripts/blitz.datadrive.sh status)
-if [ ${#error} -gt 0 ]; then
+if [ "${error}" != "" ]; then
   echo "# FAIL blitz.datadrive.sh status --> ${error}"
   echo "# Please report issue to the raspiblitz github."
   exit 1
 fi
 
 # check if HDD is connected
-if [ ${isMounted} -eq 0 ] && [ ${#hddCandidate} -eq 0 ]; then
+if [ "${isMounted}" == "0" ] && [ ${#hddCandidate} -eq 0 ]; then
     echo "***********************************************************"
     echo "WARNING: NO HDD FOUND -> Shutdown, connect HDD and restart."
     echo "***********************************************************"
@@ -35,6 +37,54 @@ if [ ${isMounted} -eq 0 ] && [ ${#hddCandidate} -eq 0 ]; then
       echo "***********************************************************"
     fi
     exit
+fi
+
+# check if HDD is from another fullnode OS and offer migration
+if [ "${hddGotMigrationData}" != "" ] && [ "${hddGotMigrationData}" != "none" ]; then
+  nodenameUpperCase=$(echo "${hddGotMigrationData}" | tr "[a-z]" "[A-Z]")
+  whiptail --title " ${nodenameUpperCase} --> RASPIBLITZ " --yes-button "Start Migration" --no-button "Ignore" --yesno "RaspiBlitz found data from ${nodenameUpperCase}
+
+You can migrate your blockchain & LND data (funds & channels) over to RaspiBlitz.
+
+Please make sure to have your ${nodenameUpperCase} seed words & static channel backup file (just in case). Also any data of additional apps you had installed on ${nodenameUpperCase} might get lost.
+
+Do you want to start migration to RaspiBlitz now?
+      " 16 58
+  if [ $? -eq 0 ]; then
+    err=""
+    echo "**************************************************"
+    echo "MIGRATION FROM ${nodenameUpperCase} TO RASPIBLITZ"
+    echo "**************************************************"
+    echo "- started ..."
+    source <(sudo /home/admin/config.scripts/blitz.migration.sh migration-${hddGotMigrationData})
+    if [ "${err}" != "" ]; then
+      echo "MIGRATION FAILED: ${err}"
+      echo "Format data disk on laptop & recover funds with fresh sd card using seed words + static channel backup."
+      exit 1
+    fi
+
+    # if free space is lower than 100GB (100000000) delete backup files
+    if [ "${hddDataFreeKB}" != "" ] && [ ${hddDataFreeKB} -lt 407051412 ]; then
+      echo "- free space of data disk is low ... deleting 'backup_migration'"
+      sudo rm -R /mnt/hdd/backup_migration
+    else
+      echo "- old data of ${nodenameUpperCase} can be found in '/mnt/hdd/backup_migration'"
+    fi
+    sleep 3
+
+    # kick into reboot
+    echo "******************************************************"
+    echo "OK MIGRATION --> will now reboot and update/recover"
+    echo "******************************************************"
+    sudo shutdown -h -r now
+    sleep 100
+    exit 0
+	else
+    echo "******************************************************"
+    echo "MIGRATION SKIPPED ... starting fresh RaspiBlitz Setup"
+    echo "******************************************************"
+    sleep 6
+  fi
 fi
 
 # check data from _bootstrap.sh that was running on device setup
@@ -76,7 +126,7 @@ if [ "${copyInProgress}" = "1" ]; then
 fi
 
 # signal that after bootstrap recover user dialog is needed
-recoveredInfoExists=$(sudo ls /home/admin/raspiblitz.recover.info 2>/dev/null | grep -c '.info')
+recoveredInfoExists=$(sudo ls /home/admin/recover.flag 2>/dev/null | grep -c '.flag')
 if [ ${recoveredInfoExists} -gt 0 ]; then
   echo "System recovered - needs final user settings"
   /home/admin/20recoverDialog.sh 
@@ -128,33 +178,31 @@ waitUntilChainNetworkIsReady()
     source ${configFile}
     echo "checking ${network}d - please wait .."
     echo "can take longer if device was off or first time"
-    while :
-    do
-      
-      # check for error on network
-      sudo -u bitcoin ${network}-cli -datadir=/home/bitcoin/.${network} getblockchaininfo 1>/dev/null 2>error.tmp
-      clienterror=`cat error.tmp`
-      rm error.tmp
 
-      # check for missing blockchain data
-      if [ "${network}" = "bitcoin" ]; then
-        if [ "${chain}" = "main" ]; then
+    # check for error on network
+    sudo -u bitcoin ${network}-cli -datadir=/home/bitcoin/.${network} getblockchaininfo 1>/dev/null 2>error.tmp
+    clienterror=`cat error.tmp`
+    rm error.tmp
+
+    # check for missing blockchain data
+    if [ "${network}" = "bitcoin" ]; then
+      if [ "${chain}" = "main" ]; then
           minSize=210000000000
-        else
-          minSize=27000000000
-        fi
-      elif [ "${network}" = "litecoin" ]; then
-        if [ "${chain}" = "main" ]; then
-          minSize=20000000000
-        else
-          minSize=27000000000
-        fi
       else
-        minSize=210000000000000
+          minSize=27000000000
       fi
-      isSyncing=$(sudo ls -la /mnt/hdd/${network}/blocks/.selfsync 2>/dev/null | grep -c '.selfsync')
-      blockchainsize=$(sudo du -shbc /mnt/hdd/${network}/ 2>/dev/null | head -n1 | awk '{print $1;}')
-      if [ ${#blockchainsize} -gt 0 ]; then
+    elif [ "${network}" = "litecoin" ]; then
+      if [ "${chain}" = "main" ]; then
+          minSize=20000000000
+      else
+          minSize=27000000000
+      fi
+    else
+      minSize=210000000000000
+    fi
+    isSyncing=$(sudo ls -la /mnt/hdd/${network}/blocks/.selfsync 2>/dev/null | grep -c '.selfsync')
+    blockchainsize=$(sudo du -shbc /mnt/hdd/${network}/ 2>/dev/null | head -n1 | awk '{print $1;}')
+    if [ ${#blockchainsize} -gt 0 ]; then
         if [ ${blockchainsize} -lt ${minSize} ]; then
           if [ ${isSyncing} -eq 0 ]; then
             echo "blockchainsize(${blockchainsize})"
@@ -163,9 +211,9 @@ waitUntilChainNetworkIsReady()
             sleep 3
           fi
         fi
-      fi
+    fi
 
-      if [ ${#clienterror} -gt 0 ]; then
+    if [ ${#clienterror} -gt 0 ]; then
         #echo "clienterror(${clienterror})"
 
         # analyse LOGS for possible reindex
@@ -183,23 +231,29 @@ waitUntilChainNetworkIsReady()
         fi
         if [ ${reindex} -gt 0 ] || [ "${clienterror}" = "missing blockchain" ]; then
     
-          echo "!! DETECTED NEED FOR RE-INDEX in debug.log ... starting repair options."          
-          sudo sed -i "s/^state=.*/state=repair/g" /home/admin/raspiblitz.info
-          sleep 3
+          if [ ${reindex} -gt 0 ]; then
+            echo "!! DETECTED NEED FOR RE-INDEX in debug.log ... starting repair options."          
+            sudo sed -i "s/^state=.*/state=repair/g" /home/admin/raspiblitz.info
+            sleep 3
+          fi
 
-          whiptail --title "RaspiBlitz - Repair Script" --yes-button "DELETE+REPAIR" --no-button "Ignore" --yesno "Your blockchain data needs to be repaired.
-This can be due to power problems or a failing HDD.
+          whiptail --title "Blockchain not Complete" --yes-button "DELETE+REPAIR" --no-button "Continue Sync" --yesno "Your blockchain data is not complete (yet).
+
+You can try to sync the chain further but if your stuck
+this can be due to power problems or a failing HDD.
 For more info see: https://raspiblitz.org -> FAQ
 
-Before RaspiBlitz can offer you repair options the old
-corrupted blockchain needs to be deleted while your LND
-funds and channel stay safe (just expect some off-time).
+If you choose to DELETE+REPAIR the old blockchain gets
+deleted but your Lightning funds & channel not be touched.
 
 How do you want to continue?
-" 13 65
+" 15 65
           if [ $? -eq 0 ]; then
             #delete+repair
             clear
+            echo "***********************************************************"
+            echo "DELETE+REPAIR blockchain ..."
+            echo "***********************************************************"
             /home/admin/XXcleanHDD.sh -blockchain -force
             /home/admin/98repairBlockchain.sh
             /home/admin/00raspiblitz.sh
@@ -207,6 +261,9 @@ How do you want to continue?
           else
             # ignore - just delete blockchain logfile
             clear
+            echo "***********************************************************"
+            echo "CONTINUE SYNC blockchain ..."
+            echo "***********************************************************"
           fi
 
         fi
@@ -217,10 +274,13 @@ How do you want to continue?
           echo "${network} error: ${clienterror}"
           exit 0
         fi
+    fi
 
-      else
-        locked=$(sudo -u bitcoin /usr/local/bin/lncli --chain=${network} --network=${chain}net getinfo 2>&1 | grep -c unlock)
-        if [ ${locked} -gt 0 ]; then
+    while :
+    do
+      
+      locked=$(sudo -u bitcoin /usr/local/bin/lncli --chain=${network} --network=${chain}net getinfo 2>&1 | grep -c unlock)
+      if [ ${locked} -gt 0 ]; then
           uptime=$(awk '{printf("%d\n",$1 + 0.5)}' /proc/uptime)
           if [ "${autoUnlock}" == "on" ] && [ ${uptime} -lt 300 ]; then
             # give autounlock 5 min after startup to react
@@ -241,17 +301,16 @@ How do you want to continue?
               exit 0
             fi
           fi
-        fi
-        lndSynced=$(sudo -u bitcoin /usr/local/bin/lncli --chain=${network} --network=${chain}net getinfo 2>/dev/null | jq -r '.synced_to_chain' | grep -c true)
-        if [ ${lndSynced} -eq 0 ]; then
+      fi
+      lndSynced=$(sudo -u bitcoin /usr/local/bin/lncli --chain=${network} --network=${chain}net getinfo 2>/dev/null | jq -r '.synced_to_chain' | grep -c true)
+      if [ ${lndSynced} -eq 0 ]; then
           /home/admin/80scanLND.sh
           if [ $? -gt 0 ]; then
             exit 0
           fi
-        else
+      else
           # everything is ready - return from loop
           return
-        fi
       fi
       sleep 5
     done
@@ -263,50 +322,24 @@ if [ ${#setupStep} -eq 0 ]; then
 fi
 if [ ${setupStep} -eq 0 ]; then
 
-  # check data from boostrap
-  # TODO: when olddata --> CLEAN OR MANUAL-UPDATE-INFO
-  if [ "${state}" = "olddata" ]; then
 
-    # old data setup
-    BACKTITLE="RaspiBlitz - Manual Update"
-    TITLE="⚡ Found old RaspiBlitz Data on HDD ⚡"
-    MENU="\n         ATTENTION: OLD DATA COULD CONTAIN FUNDS\n"
-    OPTIONS+=(MANUAL "read how to recover your old funds")
-    HEIGHT=11
-
-  else
-    isRaspbian=$(cat /etc/os-release 2>/dev/null | grep -c 'Raspbian')
-    if [ ${isRaspbian} -gt 0 ]; then
-      # show hardware test
-      /home/admin/05hardwareTest.sh
-
-      # start setup
-      BACKTITLE="RaspiBlitz - Setup"
-      TITLE="⚡ Welcome to your RaspiBlitz ⚡"
-      MENU="\nChoose how you want to setup your RaspiBlitz: \n "
-      OPTIONS+=(BITCOIN "Setup BITCOIN and Lightning (DEFAULT)" \
-                LITECOIN "Setup LITECOIN and Lightning (EXPERIMENTAL)" \
-                MIGRATION "Upload a Migration File from old RaspiBlitz" )
-      HEIGHT=12
-    else
-      # start setup
-      BACKTITLE="RaspiBlitz - Setup"
-      TITLE="⚡ Welcome to your RaspiBlitz ⚡"
-      MENU="\nStart to setup your RaspiBlitz: \n "
-      OPTIONS+=(BITCOIN "Setup BITCOIN and Lightning" \
-                MIGRATION "Upload a Migration File from old RaspiBlitz")
-      HEIGHT=11
-    fi
-  fi
+  # start setup
+  BACKTITLE="RaspiBlitz - Setup"
+  TITLE="⚡ Welcome to your RaspiBlitz ⚡"
+  MENU="\nChoose how you want to setup your RaspiBlitz: \n "
+  OPTIONS+=(BITCOIN "Setup BITCOIN and Lightning (DEFAULT)" \
+            LITECOIN "Setup LITECOIN and Lightning (EXPERIMENTAL)" \
+            MIGRATION "Upload a Migration File from old RaspiBlitz" )
+  HEIGHT=12
 
 elif [ ${setupStep} -lt 100 ]; then
 
-    # continue setup
-    BACKTITLE="${hostname} / ${network} / ${chain}"
-    TITLE="⚡ Welcome to your RaspiBlitz ⚡"
-    MENU="\nThe setup process is not finished yet: \n "
-    OPTIONS+=(CONTINUE "Continue Setup of your RaspiBlitz")
-    HEIGHT=10
+  # continue setup
+  BACKTITLE="${hostname} / ${network} / ${chain}"
+  TITLE="⚡ Welcome to your RaspiBlitz ⚡"
+  MENU="\nThe setup process is not finished yet: \n "
+  OPTIONS+=(CONTINUE "Continue Setup of your RaspiBlitz")
+  HEIGHT=10
 
 else
 

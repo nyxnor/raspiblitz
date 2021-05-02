@@ -1,9 +1,12 @@
 #!/bin/bash
 
+THUBVERSION="v0.12.13"
+
 # command info
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "-help" ]; then
  echo "config script to install, update or uninstall ThunderHub"
  echo "bonus.thunderhub.sh [on|off|menu|update]"
+ echo "install $THUBVERSION by default"
  exit 1
 fi
 
@@ -26,20 +29,20 @@ if [ "$1" = "menu" ]; then
 
   if [ "${runBehindTor}" = "on" ] && [ ${#toraddress} -gt 0 ]; then
     # Info with TOR
-    /home/admin/config.scripts/blitz.lcd.sh qr "${toraddress}"
-    whiptail --title " ThunderHub " --msgbox "Open in your local web browser & accept self-signed cert:
-https://${localip}:3011\n
-SHA1 Thumb/Fingerprint:
+    /home/admin/config.scripts/blitz.display.sh qr "${toraddress}"
+    whiptail --title " ThunderHub " --msgbox "Open in your local web browser:
+http://${localip}:3010\n
+https://${localip}:3011 with Fingerprint:
 ${fingerprint}\n
 Use your Password B to login.\n
 Hidden Service address for TOR Browser (see LCD for QR):\n${toraddress}
 " 16 67
-    /home/admin/config.scripts/blitz.lcd.sh hide
+    /home/admin/config.scripts/blitz.display.sh hide
   else
     # Info without TOR
     whiptail --title " ThunderHub " --msgbox "Open in your local web browser & accept self-signed cert:
-https://${localip}:3011\n
-SHA1 Thumb/Fingerprint:
+http://${localip}:3010\n
+https://${localip}:3011 with Fingerprint:
 ${fingerprint}\n
 Use your Password B to login.\n
 Activate TOR to access the web interface from outside your local network.
@@ -79,9 +82,9 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
 
     # download and install
     sudo -u thunderhub git clone https://github.com/apotdevin/thunderhub.git /home/thunderhub/thunderhub
-    cd /home/thunderhub/thunderhub
+    cd /home/thunderhub/thunderhub || exit 1
     # https://github.com/apotdevin/thunderhub/releases
-    sudo -u thunderhub git reset --hard v0.10.4
+    sudo -u thunderhub git reset --hard $THUBVERSION
     echo "Running npm install and run build..."
     sudo -u thunderhub npm install
     if ! [ $? -eq 0 ]; then
@@ -116,8 +119,7 @@ if [ "$1" = "1" ] || [ "$1" = "on" ]; then
 # Server Configs
 # -----------
 LOG_LEVEL='debug'
-# HODL_KEY='HODL_HODL_API_KEY'
-# BASE_PATH='/basePath'
+TOR_PROXY_SERVER='socks://127.0.0.1:9050'
 
 # -----------
 # Interface Configs
@@ -128,12 +130,11 @@ CURRENCY='sat'
 # -----------
 # Privacy Configs
 # -----------
-FETCH_PRICES=false
-FETCH_FEES=false
-HODL_HODL=false
-DISABLE_LINKS=true
-NO_CLIENT_ACCOUNTS=true
-NO_VERSION_CHECK=true
+FETCH_PRICES = false
+FETCH_FEES = false
+DISABLE_LINKS = true
+DISABLE_LNMARKETS = true
+NO_VERSION_CHECK = true
 
 # -----------
 # Account Configs
@@ -201,8 +202,9 @@ EOF
     ##################
     # SYSTEMD SERVICE
     ##################
-    echo "*** Install ThunderHub systemd for ${network} on ${chain} ***"
-    cat > /home/admin/thunderhub.service <<EOF
+
+    echo "# Install ThunderHub systemd for ${network} on ${chain}"
+    echo "
 # Systemd unit for thunderhub
 # /etc/systemd/system/thunderhub.service
 
@@ -223,11 +225,8 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-EOF
-    sudo mv /home/admin/thunderhub.service /etc/systemd/system/thunderhub.service 
-    sudo chown root:root /etc/systemd/system/thunderhub.service
+" | sudo tee /etc/systemd/system/thunderhub.service
     sudo systemctl enable thunderhub
-    echo "OK - the ThunderHub service is now enabled"
 
     # setting value in raspiblitz config
     sudo sed -i "s/^thunderhub=.*/thunderhub=on/g" /mnt/hdd/raspiblitz.conf
@@ -236,6 +235,13 @@ EOF
     if [ "${runBehindTor}" = "on" ]; then
       # make sure to keep in sync with internet.tor.sh script
       /home/admin/config.scripts/internet.hiddenservice.sh thunderhub 80 3012 443 3013
+    fi
+    source /home/admin/raspiblitz.info
+    if [ "${state}" == "ready" ]; then
+      echo "# OK - the thunderhub.service is enabled, system is ready so starting service"
+      sudo systemctl start thunderhub
+    else
+      echo "# OK - the thunderhub.service is enabled, to start manually use: 'sudo systemctl start thunderhub'"
     fi
   fi
   exit 0
@@ -280,7 +286,7 @@ fi
 # update
 if [ "$1" = "update" ]; then
   echo "# UPDATING THUNDERHUB"
-  cd /home/thunderhub/thunderhub
+  cd /home/thunderhub/thunderhub || exit 1
   # from https://github.com/apotdevin/thunderhub/blob/master/scripts/updateToLatest.sh
   # fetch latest master
   sudo -u thunderhub git fetch
